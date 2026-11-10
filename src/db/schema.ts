@@ -41,8 +41,6 @@ export const staff = pgTable("staff", {
   phone: text("phone"),
   passwordHash: text("password_hash").notNull(),
   role: staffRole("role").notNull().default("sales_agent"),
-  totpSecret: text("totp_secret"),
-  totpEnabled: boolean("totp_enabled").notNull().default(false),
   active: boolean("active").notNull().default(true),
   // bump to sign everyone out (password change, deactivation)
   tokenVersion: integer("token_version").notNull().default(0),

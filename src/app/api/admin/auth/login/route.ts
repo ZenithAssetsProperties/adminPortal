@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/db";
 import { ApiError, getIp, handleError, parseBody } from "@/lib/http";
 import { dummyHash, verifyPassword } from "@/lib/auth/password";
-import { PENDING_COOKIE, cookieOptions, signPending } from "@/lib/auth/session";
-import { LOCK_MINUTES, MAX_FAILED, requires2fa } from "@/lib/auth/staff-auth";
+import { LOCK_MINUTES, MAX_FAILED, startFullSession } from "@/lib/auth/staff-auth";
 import { rateLimit } from "@/lib/ratelimit";
 import { audit } from "@/lib/audit";
 
@@ -39,15 +37,8 @@ export async function POST(req: NextRequest) {
       throw GENERIC;
     }
 
-    // password is right: issue a short-lived "pending" cookie; a full session needs the 6-digit code
-    const jar = await cookies();
-    jar.set(PENDING_COOKIE, await signPending(user.id, user.tokenVersion), cookieOptions(5 * 60));
-    if (user.totpEnabled) return NextResponse.json({ next: "verify" });
-    if (requires2fa(user.role)) return NextResponse.json({ next: "setup" });
-    // non-admin without 2FA: sign straight in
-    const { startFullSession } = await import("@/lib/auth/staff-auth");
     await startFullSession(user.id, user.tokenVersion);
     await audit({ type: "staff", id: user.id }, "staff.login", { ip });
-    return NextResponse.json({ next: "done" });
+    return NextResponse.json({ ok: true });
   } catch (err) { return handleError(err); }
 }

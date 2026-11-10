@@ -1,5 +1,5 @@
 {
-  "id": "f549b8e6-b197-4208-a9e9-f3a794036bcd",
+  "id": "92627537-bdd1-415b-a69e-26aaee84cd2b",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -2254,19 +2254,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'sales_agent'"
-        },
-        "totp_secret": {
-          "name": "totp_secret",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "totp_enabled": {
-          "name": "totp_enabled",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
         },
         "active": {
           "name": "active",

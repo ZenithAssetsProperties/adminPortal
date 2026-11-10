@@ -13,7 +13,7 @@ export const uniq = () => randomUUID().slice(0, 8);
 
 export async function makeStaff(role: "super_admin" | "admin" | "sales_agent" | "finance" | "content" = "admin") {
   const [s] = await db.insert(schema.staff).values({
-    name: `Test ${role} ${uniq()}`, email: `t-${uniq()}@zenith.test`, role, passwordHash: "x", totpEnabled: true,
+    name: `Test ${role} ${uniq()}`, email: `t-${uniq()}@zenith.test`, role, passwordHash: "x",
   }).returning();
   return { ...s, cookie: `${STAFF_COOKIE}=${await signStaff(s.id, s.tokenVersion)}` };
 }

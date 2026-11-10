@@ -62,7 +62,6 @@ describe("staff management", () => {
     const list = await asStaff(sa.cookie, "/api/admin/staff");
     expect(list.status).toBe(200);
     expect(JSON.stringify(list.json)).not.toContain("passwordHash");
-    expect(JSON.stringify(list.json)).not.toContain("totpSecret");
   });
 
   it("creates staff of any role and validates the role", async () => {
@@ -73,7 +72,7 @@ describe("staff management", () => {
     expect((await asStaff(sa.cookie, "/api/admin/staff", { body: { ...newAgent(), role: "god" } })).status).toBe(400);
   });
 
-  it("changes role, deactivates, resets password and 2FA, signing the person out", async () => {
+  it("changes role, deactivates, resets password, signing the person out", async () => {
     const sa = await makeStaff("super_admin");
     const t = await makeStaff("content");
     expect((await asStaff(sa.cookie, `/api/admin/staff/${t.id}`, { method: "PATCH", body: { role: "finance" } })).json.role).toBe("finance");
@@ -82,15 +81,11 @@ describe("staff management", () => {
     expect((await asStaff(sa.cookie, `/api/admin/staff/${t.id}/reset-password`, { body: { password: PW } })).status).toBe(200);
     expect((await asStaff(t.cookie, "/api/admin/auth/me")).status).toBe(401); // old session is dead
     const t2 = await makeStaff("admin");
-    expect((await asStaff(sa.cookie, `/api/admin/staff/${t2.id}/reset-2fa`, { body: {} })).status).toBe(200);
-    const [row] = await db.select().from(schema.staff).where(eq(schema.staff.id, t2.id));
-    expect(row.totpEnabled).toBe(false);
-    expect(row.totpSecret).toBeNull();
     expect((await asStaff(sa.cookie, `/api/admin/staff/${t2.id}`, { method: "PATCH", body: { active: false } })).json.active).toBe(false);
     expect((await asStaff(t2.cookie, "/api/admin/auth/me")).status).toBe(401);
     expect((await asStaff(sa.cookie, `/api/admin/staff/${t2.id}`, { method: "PATCH", body: { active: true } })).json.active).toBe(true);
     const logs = await db.select().from(schema.auditLogs).where(eq(schema.auditLogs.entityId, t2.id));
-    expect(logs.map((l) => l.action)).toEqual(expect.arrayContaining(["staff.2fa_reset", "staff.deactivate", "staff.reactivate"]));
+    expect(logs.map((l) => l.action)).toEqual(expect.arrayContaining(["staff.deactivate", "staff.reactivate"]));
   });
 
   it("stops you demoting or deactivating yourself", async () => {

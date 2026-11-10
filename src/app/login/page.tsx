@@ -4,37 +4,19 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Button, ErrorNote, Field, Input } from "@/components/ui";
 import { api } from "@/lib/client";
 
-type Step = "password" | "verify" | "setup";
-
 function LoginForm() {
   const router = useRouter();
   const expired = useSearchParams().get("expired");
-  const [step, setStep] = useState<Step>("password");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [code, setCode] = useState("");
-  const [setupCode, setSetupCode] = useState("");
-  const [qr, setQr] = useState<{ qrDataUrl: string; secret: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const loadQr = () => run(async () => {
-    setQr(await api<{ qrDataUrl: string; secret: string }>("/api/admin/auth/2fa", { headers: { "x-setup-code": setupCode } }));
-  });
-
-  async function run(fn: () => Promise<void>) {
-    setBusy(true); setError(null);
-    try { await fn(); } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
+  async function submit(e: React.FormEvent) {
+    e.preventDefault(); setBusy(true); setError(null);
+    try { await api("/api/admin/auth/login", { body: { email, password } }); router.replace("/admin"); }
+    catch (err) { setError((err as Error).message); } finally { setBusy(false); }
   }
-
-  const submitPassword = () => run(async () => {
-    const r = await api<{ next: "verify" | "setup" | "done" }>("/api/admin/auth/login", { body: { email, password } });
-    if (r.next === "done") router.replace("/admin"); else setStep(r.next);
-  });
-  const submitCode = () => run(async () => {
-    await api(step === "setup" ? "/api/admin/auth/2fa" : "/api/admin/auth/verify-2fa", { body: { code }, headers: step === "setup" ? { "x-setup-code": setupCode } : undefined });
-    router.replace("/admin");
-  });
 
   return (
     <main className="grid min-h-screen lg:grid-cols-2">
@@ -48,38 +30,14 @@ function LoginForm() {
       </div>
       <div className="flex items-center justify-center p-6">
         <div className="w-full max-w-sm animate-fade-up">
-          <h2 className="mb-1 text-4xl text-brand-900">{step === "password" ? "Sign in" : step === "verify" ? "Two-step check" : "Secure your account"}</h2>
-          <p className="mb-6 text-sm text-brand-500">
-            {step === "password" && "Use your staff email and password."}
-            {step === "verify" && "Enter the 6-digit code from your authenticator app."}
-            {step === "setup" && "Admins must use two-step login. Scan this code with an authenticator app, then enter the 6-digit code it shows."}
-          </p>
-          {expired && step === "password" && <p className="mb-4 text-sm text-brand-600">You were signed out for inactivity. Please sign in again.</p>}
-          <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); void (step === "password" ? submitPassword() : step === "setup" && !qr ? loadQr() : submitCode()); }}>
-            {step === "password" ? (
-              <>
-                <Field label="Email"><Input type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
-                <Field label="Password"><Input type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} /></Field>
-              </>
-            ) : step === "setup" && !qr ? (
-              <Field label="Setup code" hint="Ask your super admin for this one-time code"><Input required autoFocus value={setupCode} onChange={(e) => setSetupCode(e.target.value)} placeholder="XXXX-XXXX-XXXX" /></Field>
-            ) : (
-              <>
-                {step === "setup" && qr && (
-                  <div className="flex flex-col items-center gap-2 border border-line bg-white p-4">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={qr.qrDataUrl} alt="Authenticator QR code" className="size-44" />
-                    <code className="break-all text-xs text-brand-500">{qr.secret}</code>
-                  </div>
-                )}
-                <Field label="6-digit code">
-                  <Input inputMode="numeric" autoComplete="one-time-code" maxLength={6} pattern="\d{6}" required autoFocus value={code}
-                    onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} className="text-center text-xl tracking-[0.5em]" />
-                </Field>
-              </>
-            )}
+          <h2 className="mb-1 text-4xl text-brand-900">Sign in</h2>
+          <p className="mb-6 text-sm text-brand-500">Use your staff email and password.</p>
+          {expired && <p className="mb-4 text-sm text-brand-600">You were signed out for inactivity. Please sign in again.</p>}
+          <form className="space-y-4" onSubmit={submit}>
+            <Field label="Email"><Input type="email" autoComplete="username" required autoFocus value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
+            <Field label="Password"><Input type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} /></Field>
             <ErrorNote message={error} />
-            <Button type="submit" loading={busy} className="w-full">{step === "password" ? "Continue" : step === "setup" && !qr ? "Continue" : "Verify and sign in"}</Button>
+            <Button type="submit" loading={busy} className="w-full">Sign in</Button>
           </form>
         </div>
       </div>

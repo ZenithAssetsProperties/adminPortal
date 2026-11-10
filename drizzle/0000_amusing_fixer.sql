@@ -281,8 +281,6 @@ CREATE TABLE "staff" (
 	"phone" text,
 	"password_hash" text NOT NULL,
 	"role" "staff_role" DEFAULT 'sales_agent' NOT NULL,
-	"totp_secret" text,
-	"totp_enabled" boolean DEFAULT false NOT NULL,
 	"active" boolean DEFAULT true NOT NULL,
 	"token_version" integer DEFAULT 0 NOT NULL,
 	"failed_logins" integer DEFAULT 0 NOT NULL,

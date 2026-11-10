@@ -6,7 +6,7 @@ import { usePerms } from "@/components/staff/usePerms";
 import { api, fmtDate, useApi } from "@/lib/client";
 import { ROLE_LABELS, type Role } from "@/lib/rbac";
 
-type Row = { id: string; name: string; email: string; role: Role; active: boolean; totpEnabled: boolean; lastLoginAt: string | null };
+type Row = { id: string; name: string; email: string; role: Role; active: boolean; lastLoginAt: string | null };
 const ROLES = Object.keys(ROLE_LABELS) as Role[];
 
 export default function StaffPage() {
@@ -36,7 +36,7 @@ export default function StaffPage() {
           <DataTable rows={data?.items ?? []} onRowClick={(r) => { setTarget(r); setNewPw(""); setErr(null); }} empty="No staff."
             columns={[
               { header: "Name", cell: (r) => <div><div className="font-medium text-brand-900">{r.name}</div><div className="text-xs text-brand-400">{r.email}</div></div> },
-              { header: "Role", cell: (r) => ROLE_LABELS[r.role] }, { header: "Two-step", cell: (r) => <Badge tone={r.totpEnabled ? "green" : "amber"}>{r.totpEnabled ? "On" : "Off"}</Badge> },
+              { header: "Role", cell: (r) => ROLE_LABELS[r.role] },
               { header: "Last sign-in", cell: (r) => fmtDate(r.lastLoginAt) }, { header: "Status", cell: (r) => <Badge tone={r.active ? "green" : "grey"}>{r.active ? "Active" : "Deactivated"}</Badge> },
             ]} />
         )}
@@ -57,7 +57,6 @@ export default function StaffPage() {
               <Select disabled={isSelf} value={target.role} onChange={(e) => patch({ role: e.target.value })}>{ROLES.map((r) => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}</Select></Field>
             <div className="flex flex-wrap gap-2">
               <Button variant={target.active ? "danger" : "secondary"} disabled={isSelf && target.active} onClick={() => patch({ active: !target.active })}>{target.active ? "Deactivate" : "Reactivate"}</Button>
-              <Button variant="secondary" onClick={() => confirm("Clear two-step login? They will need to set it up again and are signed out.") && run(() => api(`/api/admin/staff/${target.id}/reset-2fa`, { body: {} }), "Two-step login cleared.").then(() => setTarget(null))}>Reset two-step</Button>
             </div>
             <form className="space-y-2 border-t border-line pt-4" onSubmit={(e) => { e.preventDefault(); void run(() => api(`/api/admin/staff/${target.id}/reset-password`, { body: { password: newPw } }), "Password reset. They have been signed out.").then(() => { setNewPw(""); setTarget(null); }); }}>
               <Field label="Set a new password" hint="They are signed out everywhere."><Input type="password" autoComplete="new-password" minLength={12} required value={newPw} onChange={(e) => setNewPw(e.target.value)} /></Field>

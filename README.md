@@ -25,14 +25,11 @@ pnpm install
 docker run -d --name zenith-pg -e POSTGRES_PASSWORD=zenith -e POSTGRES_USER=zenith -e POSTGRES_DB=zenith -p 54329:5432 postgres:16-alpine
 cp .env.example .env.local        # then set SESSION_SECRET (32+ chars) and SEED_ADMIN_PASSWORD
 pnpm db:migrate
-pnpm db:seed                      # prints the one-time two-step setup code for the first admin
+pnpm db:seed                      # creates the first super admin from SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD
 pnpm dev                          # http://localhost:3000
 ```
 
-Sign in at `/login` with the seeded email and password. Two-step login (authenticator app) is **off by default**; anyone can switch
-it on for their own account from the Account page. To force it for admins and finance staff (recommended before real money flows,
-and what the PRD asks for), set `REQUIRE_2FA=true`; new staff then need a one-time setup code that a super admin issues at
-`GET /api/admin/auth/setup-code?staffId=<id>` (the seed prints the first one).
+Sign in at `/login` with the seeded email and password.
 
 ## Deploy
 
@@ -53,7 +50,7 @@ Tests are integration tests: they need the app running (`pnpm exec next dev -p 3
 
 ## Security notes
 
-- Optional two-step login (forced with `REQUIRE_2FA=true`). Passwords hashed with bcrypt (cost 12); staff lock out after 5 wrong passwords; every sign-in failure looks identical.
+- Passwords hashed with bcrypt (cost 12); staff lock out after 5 wrong passwords; every sign-in failure looks identical.
 - Session cookies are HttpOnly + SameSite=Lax with a 30 minute idle timeout; state-changing staff requests also check the Origin header.
 - Money is stored as whole kobo. Online payment amounts always come from the server's records, the Paystack webhook is signature checked and safe to repeat, and a payment that arrives for a property someone else holds is recorded but flagged for staff review instead of changing the property.
 - Uploads are checked by their real file bytes; documents are served only through short-lived signed links, and every staff download is audited.

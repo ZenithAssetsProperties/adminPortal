@@ -59,7 +59,7 @@ export function parseQuery<T>(req: NextRequest, schemaZ: ZodType<T>): T {
 
 // ---------------------------------------------------------------- staff (admin) routes
 export type StaffUser = {
-  id: string; name: string; email: string; role: Role; totpEnabled: boolean;
+  id: string; name: string; email: string; role: Role;
 };
 
 /** Reads the staff session cookie and confirms the account is still active. */
@@ -70,7 +70,7 @@ export async function currentStaff(): Promise<{ staff: StaffUser; issuedAt: numb
   const [row] = await db.select().from(schema.staff).where(eq(schema.staff.id, claims.sub));
   if (!row || !row.active || row.tokenVersion !== claims.tv) return null;
   return {
-    staff: { id: row.id, name: row.name, email: row.email, role: row.role, totpEnabled: row.totpEnabled },
+    staff: { id: row.id, name: row.name, email: row.email, role: row.role },
     issuedAt: claims.iat,
   };
 }
