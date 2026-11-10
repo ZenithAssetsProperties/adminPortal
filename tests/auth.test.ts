@@ -52,7 +52,17 @@ describe("staff sign-in", () => {
 });
 
 describe("two-step setup", () => {
-  it("is refused with only the password; allowed with the issued setup code", async () => {
+  const forced = process.env.REQUIRE_2FA === "true";
+
+  it("by default an admin signs in with just email and password", async () => {
+    if (forced) return; // this build has REQUIRE_2FA=true, covered by the tests below
+    const s = await newStaff("admin");
+    const l = await login(s.email, PASSWORD);
+    expect(l.json.next).toBe("done");
+    expect((await asStaff(l.cookie, "/api/admin/auth/me")).status).toBe(200);
+  });
+
+  it.skipIf(!forced)("REQUIRE_2FA=true: refused with only the password; allowed with the issued setup code", async () => {
     const s = await newStaff("admin");
     const l = await login(s.email, PASSWORD);
     expect(l.json.next).toBe("setup");

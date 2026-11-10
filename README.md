@@ -29,9 +29,10 @@ pnpm db:seed                      # prints the one-time two-step setup code for 
 pnpm dev                          # http://localhost:3000
 ```
 
-First sign-in: email + password, then the **setup code** the seed printed, then scan the QR code with an authenticator app.
-Admins and finance staff must use two-step login. A super admin can issue a setup code for a new colleague at
-`GET /api/admin/auth/setup-code?staffId=<id>`.
+Sign in at `/login` with the seeded email and password. Two-step login (authenticator app) is **off by default**; anyone can switch
+it on for their own account from the Account page. To force it for admins and finance staff (recommended before real money flows,
+and what the PRD asks for), set `REQUIRE_2FA=true`; new staff then need a one-time setup code that a super admin issues at
+`GET /api/admin/auth/setup-code?staffId=<id>` (the seed prints the first one).
 
 ## Deploy
 
@@ -52,7 +53,7 @@ Tests are integration tests: they need the app running (`pnpm exec next dev -p 3
 
 ## Security notes
 
-- Passwords hashed with bcrypt (cost 12); staff lock out after 5 wrong passwords; every sign-in failure looks identical.
+- Optional two-step login (forced with `REQUIRE_2FA=true`). Passwords hashed with bcrypt (cost 12); staff lock out after 5 wrong passwords; every sign-in failure looks identical.
 - Session cookies are HttpOnly + SameSite=Lax with a 30 minute idle timeout; state-changing staff requests also check the Origin header.
 - Money is stored as whole kobo. Online payment amounts always come from the server's records, the Paystack webhook is signature checked and safe to repeat, and a payment that arrives for a property someone else holds is recorded but flagged for staff review instead of changing the property.
 - Uploads are checked by their real file bytes; documents are served only through short-lived signed links, and every staff download is audited.

@@ -6,8 +6,13 @@ import { unauthorized } from "@/lib/http";
 
 export const MAX_FAILED = 5;
 export const LOCK_MINUTES = 15;
-/** Admins and finance (who can record payments) must use two-step login (PRD §33); other roles may opt in. */
-export const requires2fa = (role: string) => role === "super_admin" || role === "admin" || role === "finance";
+/**
+ * Two-step login is OFF by default: staff sign in with email and password. Set REQUIRE_2FA=true to force it for
+ * admins and finance (who can record payments), as the PRD (section 33) asks. Anyone can still turn it on for their
+ * own account from the Account page.
+ */
+export const requires2fa = (role: string) =>
+  process.env.REQUIRE_2FA === "true" && (role === "super_admin" || role === "admin" || role === "finance");
 
 /** The staff member behind a pending (password-ok, code-not-yet-entered) or full session cookie. */
 export async function staffFromPendingOrSession() {
