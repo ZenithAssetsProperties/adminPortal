@@ -48,6 +48,9 @@ export const PATCH = adminRoute("transactions.write", async ({ req, staff, param
   const result = await db.transaction(async (tx) => {
     const [cur] = await tx.select().from(schema.transactions).where(eq(schema.transactions.id, params.id)).for("update");
     if (!cur) throw notFound();
+    // defence in depth: scoped roles may only touch their own deals, and never reassign them
+    if (isScopedToOwn(staff.role) && cur.agentId !== staff.id) throw notFound();
+    if (isScopedToOwn(staff.role) && b.agentId !== undefined) throw forbidden("Only managers can reassign transactions");
     const set: Partial<typeof schema.transactions.$inferInsert> = { updatedAt: new Date() };
     if (b.agentId !== undefined) {
       if (b.agentId) {
