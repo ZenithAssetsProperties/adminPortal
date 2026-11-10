@@ -1,4 +1,4 @@
-import { and, count, desc, eq, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { adminRoute } from "@/lib/http";
 import { can, isScopedToOwn } from "@/lib/rbac";
@@ -15,12 +15,16 @@ export const GET = adminRoute("dashboard.view", async ({ staff }) => {
       .where(sql`${schema.properties.deletedAt} is null`).groupBy(schema.properties.status);
     out.properties = Object.fromEntries(["draft", "available", "reserved", "sold"].map((s) => [s, num(rows.find((x) => x.status === s)?.n)]));
   }
+  const scoped = isScopedToOwn(r); // sales agents only see numbers about their own work
   if (can(r, "enquiries.read")) {
-    const [x] = await db.select({ n: count() }).from(schema.enquiries).where(eq(schema.enquiries.handled, false));
+    const own = scoped ? inArray(schema.enquiries.leadId, db.select({ id: schema.leads.id }).from(schema.leads).where(eq(schema.leads.agentId, staff.id))) : undefined;
+    const [x] = await db.select({ n: count() }).from(schema.enquiries).where(and(eq(schema.enquiries.handled, false), own));
     out.newEnquiries = num(x.n);
   }
   if (can(r, "inspections.read")) {
-    const [x] = await db.select({ n: count() }).from(schema.inspections).where(eq(schema.inspections.status, "requested"));
+    const own = scoped ? or(eq(schema.properties.agentId, staff.id), eq(schema.inspections.assignedTo, staff.id)) : undefined;
+    const [x] = await db.select({ n: count() }).from(schema.inspections).innerJoin(schema.properties, eq(schema.inspections.propertyId, schema.properties.id))
+      .where(and(eq(schema.inspections.status, "requested"), own));
     out.pendingInspections = num(x.n);
   }
   if (can(r, "reservations.read")) {
@@ -41,7 +45,7 @@ export const GET = adminRoute("dashboard.view", async ({ staff }) => {
       from transactions t
       left join (select transaction_id, sum(amount_kobo) as paid from payments where status = 'success' group by transaction_id) pp
         on pp.transaction_id = t.id
-      where t.stage <> 'cancelled'`);
+      where t.stage <> 'cancelled' ${scoped ? sql`and t.agent_id = ${staff.id}` : sql``}`);
     out.outstandingKobo = num(res.rows[0].owed);
   }
   if (can(r, "leads.read")) {

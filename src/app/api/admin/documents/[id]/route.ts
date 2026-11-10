@@ -43,7 +43,8 @@ export const PATCH = adminRoute("documents.write", async ({ req, staff, params }
   // An approved document was already vetted for its audience. Re-pointing it (public, or another customer)
   // would bypass that review, so it needs approval-level rights.
   const changesAudience = (body.visibility !== undefined && body.visibility !== current.visibility)
-    || (body.customerId !== undefined && body.customerId !== current.customerId);
+    || (body.customerId !== undefined && body.customerId !== current.customerId)
+    || (body.propertyId !== undefined && body.propertyId !== current.propertyId);
   if (current.status === "approved" && changesAudience && !can(staff.role, "documents.approve")) {
     throw forbidden("Changing who can see an approved document needs approval rights");
   }

@@ -68,6 +68,7 @@ export const PATCH = adminRoute("inspections.write", async ({ req, staff, params
         message = { type: "inspection_rescheduled", title: "Inspection rescheduled", text: `Your inspection of ${propertyName} has been moved to ${when(body.preferredDate, body.preferredTime)}.` };
         break;
       case "complete":
+        if (i.status !== "confirmed") throw conflict("Confirm the inspection before marking it completed");
         set.status = "completed";
         break;
       case "cancel":

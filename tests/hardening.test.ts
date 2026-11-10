@@ -163,3 +163,34 @@ describe("inspection form cannot be used to spam a third party", () => {
     expect(results.filter((s) => s === 429).length).toBeGreaterThanOrEqual(2);
   });
 });
+
+describe("second review round", () => {
+  it("moving an approved document to another property needs approval rights", async () => {
+    const content = await makeStaff("content"); const admin = await makeStaff("admin");
+    const p1 = await makeProperty(); const p2 = await makeProperty();
+    const [doc] = await db.insert(schema.documents).values({ groupId: crypto.randomUUID(), title: "Survey", storageKey: `documents/t/${uniq()}.pdf`, mimeType: "application/pdf", sizeBytes: 10, status: "approved", propertyId: p1.id }).returning();
+    expect((await asStaff(content.cookie, `/api/admin/documents/${doc.id}`, { method: "PATCH", body: { propertyId: p2.id } })).status).toBe(403);
+    expect((await asStaff(admin.cookie, `/api/admin/documents/${doc.id}`, { method: "PATCH", body: { propertyId: p2.id } })).status).toBe(200);
+  });
+
+  it("a sales agent's dashboard counts only their own work, not company-wide totals", async () => {
+    const agent = await makeStaff("sales_agent"); const admin = await makeStaff("admin");
+    const mine = await makeCustomer(); const other = await makeCustomer(); const prop = await makeProperty();
+    // a deal assigned to someone else owing a lot, and one of the agent's own
+    await db.insert(schema.transactions).values({ reference: `TXN-D${uniq()}`, customerId: other.id, propertyId: prop.id, priceKobo: 900_000_000_00 });
+    const p2 = await makeProperty();
+    await db.insert(schema.transactions).values({ reference: `TXN-D${uniq()}`, customerId: mine.id, propertyId: p2.id, priceKobo: 5_000_00, agentId: agent.id });
+    const a = await asStaff(agent.cookie, "/api/admin/dashboard");
+    expect(a.json.outstandingKobo).toBe(5_000_00);
+    const all = await asStaff(admin.cookie, "/api/admin/dashboard");
+    expect(all.json.outstandingKobo).toBeGreaterThan(900_000_000_00);
+  });
+
+  it("an inspection must be confirmed before it can be completed", async () => {
+    const admin = await makeStaff("admin"); const p = await makeProperty();
+    const [insp] = await db.insert(schema.inspections).values({ propertyId: p.id, name: "V", phone: "08011111111", preferredDate: "2030-01-01", preferredTime: "10:00" }).returning();
+    expect((await asStaff(admin.cookie, `/api/admin/inspections/${insp.id}`, { method: "PATCH", body: { action: "complete" } })).status).toBe(409);
+    expect((await asStaff(admin.cookie, `/api/admin/inspections/${insp.id}`, { method: "PATCH", body: { action: "confirm" } })).status).toBe(200);
+    expect((await asStaff(admin.cookie, `/api/admin/inspections/${insp.id}`, { method: "PATCH", body: { action: "complete" } })).status).toBe(200);
+  });
+});
