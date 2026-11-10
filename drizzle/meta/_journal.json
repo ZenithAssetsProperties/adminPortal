@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1794286061959,
+      "tag": "0000_confused_bloodstorm",
+      "breakpoints": true
+    }
+  ]
+}

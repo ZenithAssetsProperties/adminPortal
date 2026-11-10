@@ -1,0 +1,40 @@
+@import "tailwindcss";
+
+/* Zenith Asset Group palette, taken from the live website */
+@theme {
+  --color-brand-50: #eef5f6;
+  --color-brand-100: #d8e8ea;
+  --color-brand-200: #b2d1d6;
+  --color-brand-300: #85b4bc;
+  --color-brand-400: #558f99;
+  --color-brand-500: #326d78;
+  --color-brand-600: #14505b;
+  --color-brand-700: #103f48;
+  --color-brand-800: #0b2e35;
+  --color-brand-900: #081f24;
+  --color-brand-950: #041013;
+  --color-accent-50: #fef1f1;
+  --color-accent-100: #fde1e1;
+  --color-accent-500: #f24747;
+  --color-accent-600: #f03030;
+  --color-accent-700: #c31f1f;
+  --color-paper: #f7f7f4;
+  --color-line: #e2e8e7;
+  --font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-instrument-serif), Georgia, serif;
+  --radius-sm: 0px;
+  --radius-md: 2px;
+  --radius-lg: 2px;
+  --radius-xl: 4px;
+}
+
+:root { color-scheme: light; }
+html, body { background: var(--color-paper); color: var(--color-brand-950); }
+body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
+h1, h2, h3 { font-family: var(--font-heading); font-weight: 400; letter-spacing: -0.01em; }
+
+:focus-visible { outline: 2px solid var(--color-brand-500); outline-offset: 2px; }
+
+@keyframes fade-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.animate-fade-up { animation: fade-up .4s ease-out both; }
+@media (prefers-reduced-motion: reduce) { .animate-fade-up { animation: none; } }
