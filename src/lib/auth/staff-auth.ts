@@ -11,6 +11,10 @@ export const LOCK_MINUTES = 15;
  * admins and finance (who can record payments), as the PRD (section 33) asks. Anyone can still turn it on for their
  * own account from the Account page.
  */
+if (process.env.NODE_ENV === "production" && process.env.REQUIRE_2FA !== "true") {
+  console.warn("[security] Two-step login is NOT enforced for admins/finance. Set REQUIRE_2FA=true before handling real customer money.");
+}
+
 export const requires2fa = (role: string) =>
   process.env.REQUIRE_2FA === "true" && (role === "super_admin" || role === "admin" || role === "finance");
 
