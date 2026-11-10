@@ -12,10 +12,12 @@ async function main() {
   if (password.length < 12) throw new Error("SEED_ADMIN_PASSWORD must be at least 12 characters");
   const [existing] = await db.select().from(schema.staff).where(eq(schema.staff.email, email));
   if (existing) { console.log("Super admin already exists:", email); process.exit(0); }
-  await db.insert(schema.staff).values({
+  const [row] = await db.insert(schema.staff).values({
     name: "Super Admin", email, role: "super_admin", passwordHash: await bcrypt.hash(password, 12),
-  });
+  }).returning();
+  const { setupCodeFor } = await import("../src/lib/auth/setup-code");
   console.log("Created super admin:", email);
+  console.log("Two-step setup code (needed at first sign-in):", setupCodeFor(row));
   process.exit(0);
 }
 main().catch((e) => { console.error(e); process.exit(1); });

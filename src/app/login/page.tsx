@@ -1,5 +1,5 @@
 "use client";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button, ErrorNote, Field, Input } from "@/components/ui";
 import { api } from "@/lib/client";
@@ -13,13 +13,14 @@ function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
+  const [setupCode, setSetupCode] = useState("");
   const [qr, setQr] = useState<{ qrDataUrl: string; secret: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    if (step === "setup") api<{ qrDataUrl: string; secret: string }>("/api/admin/auth/2fa").then(setQr).catch((e) => setError(e.message));
-  }, [step]);
+  const loadQr = () => run(async () => {
+    setQr(await api<{ qrDataUrl: string; secret: string }>("/api/admin/auth/2fa", { headers: { "x-setup-code": setupCode } }));
+  });
 
   async function run(fn: () => Promise<void>) {
     setBusy(true); setError(null);
@@ -31,7 +32,7 @@ function LoginForm() {
     if (r.next === "done") router.replace("/admin"); else setStep(r.next);
   });
   const submitCode = () => run(async () => {
-    await api(step === "setup" ? "/api/admin/auth/2fa" : "/api/admin/auth/verify-2fa", { body: { code } });
+    await api(step === "setup" ? "/api/admin/auth/2fa" : "/api/admin/auth/verify-2fa", { body: { code }, headers: step === "setup" ? { "x-setup-code": setupCode } : undefined });
     router.replace("/admin");
   });
 
@@ -54,12 +55,14 @@ function LoginForm() {
             {step === "setup" && "Admins must use two-step login. Scan this code with an authenticator app, then enter the 6-digit code it shows."}
           </p>
           {expired && step === "password" && <p className="mb-4 text-sm text-brand-600">You were signed out for inactivity. Please sign in again.</p>}
-          <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); void (step === "password" ? submitPassword() : submitCode()); }}>
+          <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); void (step === "password" ? submitPassword() : step === "setup" && !qr ? loadQr() : submitCode()); }}>
             {step === "password" ? (
               <>
                 <Field label="Email"><Input type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
                 <Field label="Password"><Input type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} /></Field>
               </>
+            ) : step === "setup" && !qr ? (
+              <Field label="Setup code" hint="Ask your super admin for this one-time code"><Input required autoFocus value={setupCode} onChange={(e) => setSetupCode(e.target.value)} placeholder="XXXX-XXXX-XXXX" /></Field>
             ) : (
               <>
                 {step === "setup" && qr && (
@@ -76,7 +79,7 @@ function LoginForm() {
               </>
             )}
             <ErrorNote message={error} />
-            <Button type="submit" loading={busy} className="w-full">{step === "password" ? "Continue" : "Verify and sign in"}</Button>
+            <Button type="submit" loading={busy} className="w-full">{step === "password" ? "Continue" : step === "setup" && !qr ? "Continue" : "Verify and sign in"}</Button>
           </form>
         </div>
       </div>

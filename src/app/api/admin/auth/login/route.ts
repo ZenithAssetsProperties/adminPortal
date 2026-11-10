@@ -21,14 +21,14 @@ export async function POST(req: NextRequest) {
       throw new ApiError(429, "Too many sign-in attempts. Try again in a few minutes.");
     }
     const [user] = await db.select().from(schema.staff).where(eq(schema.staff.email, e));
-    const GENERIC = new ApiError(401, "Incorrect email or password");
+    // One message for every failure (unknown email, wrong password, locked, disabled) so the
+    // response never reveals which emails exist or which are locked.
+    const GENERIC = new ApiError(401, "Incorrect email or password, or the account is temporarily locked");
 
-    if (user?.lockedUntil && user.lockedUntil > new Date()) {
-      throw new ApiError(423, "This account is temporarily locked after too many wrong passwords. Try again later.");
-    }
-    const ok = await verifyPassword(password, user?.passwordHash ?? dummyHash());
-    if (!user || !ok || !user.active) {
-      if (user) {
+    const locked = Boolean(user?.lockedUntil && user.lockedUntil > new Date());
+    const ok = await verifyPassword(password, user?.passwordHash ?? dummyHash()); // always compare: same timing every path
+    if (!user || !ok || !user.active || locked) {
+      if (user && !locked) {
         const failed = user.failedLogins + 1;
         await db.update(schema.staff).set({
           failedLogins: failed >= MAX_FAILED ? 0 : failed,

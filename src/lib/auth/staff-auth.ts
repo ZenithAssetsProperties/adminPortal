@@ -6,8 +6,8 @@ import { unauthorized } from "@/lib/http";
 
 export const MAX_FAILED = 5;
 export const LOCK_MINUTES = 15;
-/** Admins must use two-step login (PRD §33); other roles may opt in. */
-export const requires2fa = (role: string) => role === "super_admin" || role === "admin";
+/** Admins and finance (who can record payments) must use two-step login (PRD §33); other roles may opt in. */
+export const requires2fa = (role: string) => role === "super_admin" || role === "admin" || role === "finance";
 
 /** The staff member behind a pending (password-ok, code-not-yet-entered) or full session cookie. */
 export async function staffFromPendingOrSession() {

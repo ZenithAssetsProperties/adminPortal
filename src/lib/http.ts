@@ -19,8 +19,23 @@ export const forbidden = (m = "You do not have permission to do this") => new Ap
 export const notFound = (m = "Not found") => new ApiError(404, m);
 export const conflict = (m: string) => new ApiError(409, m);
 
-export const getIp = (req: Request) =>
-  req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || null;
+/**
+ * Client IP for rate limiting and audit logs. X-Forwarded-For can be forged by the caller, so we
+ * only trust values added by OUR proxy: the platform's own header when present, otherwise the
+ * entry `TRUSTED_PROXY_HOPS` places from the right (default 1 = the last proxy we sit behind).
+ */
+export function getIp(req: Request): string | null {
+  const h = req.headers;
+  // Only trust a platform header when the operator names it (CLIENT_IP_HEADER): a client can send any
+  // header itself unless the host strips/overwrites it. Netlify: x-nf-client-connection-ip. Vercel: x-vercel-forwarded-for.
+  const named = process.env.CLIENT_IP_HEADER?.toLowerCase();
+  const platform = named ? h.get(named) : null;
+  if (platform) return platform.split(",")[0].trim();
+  const hops = Math.max(1, Number(process.env.TRUSTED_PROXY_HOPS ?? 1) || 1);
+  const chain = (h.get("x-forwarded-for") ?? "").split(",").map((x) => x.trim()).filter(Boolean);
+  if (chain.length) return chain[Math.max(0, chain.length - hops)] ?? null;
+  return h.get("x-real-ip");
+}
 
 export function handleError(e: unknown): NextResponse {
   if (e instanceof ApiError) {

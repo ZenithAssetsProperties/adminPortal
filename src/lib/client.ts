@@ -4,10 +4,10 @@ import { useCallback, useEffect, useState } from "react";
 export class ApiFail extends Error { constructor(public status: number, message: string, public details?: unknown) { super(message); } }
 
 /** fetch wrapper for the admin API. Sends the user to the login page when the session has ended. */
-export async function api<T = unknown>(path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
+export async function api<T = unknown>(path: string, init: { method?: string; body?: unknown; headers?: Record<string, string> } = {}): Promise<T> {
   const res = await fetch(path, {
     method: init.method ?? (init.body !== undefined ? "POST" : "GET"),
-    headers: init.body instanceof FormData ? undefined : { "Content-Type": "application/json" },
+    headers: { ...(init.body instanceof FormData ? {} : { "Content-Type": "application/json" }), ...init.headers },
     body: init.body === undefined ? undefined : init.body instanceof FormData ? init.body : JSON.stringify(init.body),
     credentials: "same-origin",
   });

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Integration-test helpers. These talk to a RUNNING app (default http://localhost:3100,
  * start it with `pnpm exec next dev -p 3100`) and the real database in DATABASE_URL.

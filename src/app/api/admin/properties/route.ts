@@ -5,6 +5,7 @@ import { adminRoute, getIp, parseBody, parseQuery } from "@/lib/http";
 import { PageQuery, likeEscape, offset, paged } from "@/lib/query";
 import { PropertyInput, slugify } from "@/lib/validation/property";
 import { audit } from "@/lib/audit";
+import { handlePropertyChange } from "@/lib/alerts";
 
 const Q = PageQuery.extend({
   status: z.enum(["draft", "available", "reserved", "sold"]).optional(),
@@ -31,6 +32,7 @@ export const GET = adminRoute("properties.read", async ({ req }) => {
 export const POST = adminRoute("properties.write", async ({ req, staff }) => {
   const body = await parseBody(req, PropertyInput);
   const [row] = await db.insert(schema.properties).values({ ...body, slug: slugify(body.name), createdBy: staff.id }).returning();
+  void handlePropertyChange(null, row); // alert matching customers; never blocks or fails the request
   await audit({ type: "staff", id: staff.id }, "property.create", { entity: "property", entityId: row.id, ip: getIp(req) });
   return Response.json(row, { status: 201 });
 });

@@ -4,7 +4,9 @@ import { db, schema } from "@/db";
 import { adminRoute, badRequest, getIp, notFound, parseBody } from "@/lib/http";
 import { PropertyPatch } from "@/lib/validation/property";
 import { audit } from "@/lib/audit";
+import { assertCanReopen } from "@/lib/property-guard";
 import { deleteObject } from "@/lib/storage";
+import { handlePropertyChange } from "@/lib/alerts";
 
 const Id = z.string().uuid();
 const live = (id: string) => and(eq(schema.properties.id, id), isNull(schema.properties.deletedAt));
@@ -21,8 +23,11 @@ export const PATCH = adminRoute("properties.write", async ({ req, staff, params 
   if (!Id.safeParse(params.id).success) throw notFound();
   const body = await parseBody(req, PropertyPatch);
   if (!Object.keys(body).length) throw badRequest("Nothing to update");
+  if (body.status) await assertCanReopen(params.id, body.status);
+  const [before] = await db.select().from(schema.properties).where(live(params.id));
   const [row] = await db.update(schema.properties).set({ ...body, updatedAt: new Date() }).where(live(params.id)).returning();
   if (!row) throw notFound();
+  void handlePropertyChange(before ?? null, row);
   await audit({ type: "staff", id: staff.id }, "property.update", { entity: "property", entityId: row.id, meta: { fields: Object.keys(body) }, ip: getIp(req) });
   return row;
 });

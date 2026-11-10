@@ -4,7 +4,7 @@ import path from "node:path";
 import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-const useS3 = () => Boolean(process.env.S3_BUCKET && process.env.S3_ACCESS_KEY_ID);
+const s3Enabled = () => Boolean(process.env.S3_BUCKET && process.env.S3_ACCESS_KEY_ID);
 const LOCAL_DIR = path.join(process.cwd(), ".uploads");
 
 let client: S3Client | undefined;
@@ -40,7 +40,7 @@ function assertSafeKey(key: string) {
 
 export async function putObject(key: string, body: Buffer, contentType: string) {
   assertSafeKey(key);
-  if (useS3()) {
+  if (s3Enabled()) {
     await s3().send(new PutObjectCommand({ Bucket: process.env.S3_BUCKET!, Key: key, Body: body, ContentType: contentType }));
     return;
   }
@@ -51,7 +51,7 @@ export async function putObject(key: string, body: Buffer, contentType: string) 
 
 export async function deleteObject(key: string) {
   assertSafeKey(key);
-  if (useS3()) {
+  if (s3Enabled()) {
     await s3().send(new DeleteObjectCommand({ Bucket: process.env.S3_BUCKET!, Key: key }));
   } else {
     await fs.rm(path.join(LOCAL_DIR, key), { force: true });
@@ -75,7 +75,7 @@ export function verifyLocalSig(key: string, exp: number, given: string) {
 /** Short-lived download link. `baseUrl` is this app's origin (used in local-disk mode). */
 export async function signedUrl(key: string, baseUrl: string, filename?: string, seconds = 300): Promise<string> {
   assertSafeKey(key);
-  if (useS3()) {
+  if (s3Enabled()) {
     return getSignedUrl(s3(), new GetObjectCommand({
       Bucket: process.env.S3_BUCKET!, Key: key,
       ResponseContentDisposition: filename ? `inline; filename="${filename.replace(/[^\w.\- ]/g, "_")}"` : undefined,

@@ -25,8 +25,8 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   admin: all.filter((p) => p !== "staff.manage"),
   sales_agent: [
     "dashboard.view", "properties.read", "customers.read", "enquiries.read", "enquiries.write",
-    "inspections.read", "inspections.write", "leads.read", "leads.write", "reservations.read",
-    "transactions.read", "documents.read",
+    "inspections.read", "inspections.write", "leads.read", "leads.write",
+    "transactions.read",
   ],
   finance: [
     "dashboard.view", "customers.read", "transactions.read", "transactions.write",
