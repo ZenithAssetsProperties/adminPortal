@@ -7,16 +7,23 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "lint:fix": "eslint --fix",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
     "db:seed": "tsx scripts/seed.ts",
-    "test": "vitest run",
-    "typecheck": "tsc --noEmit",
     "db:demo": "tsx scripts/seed-demo.ts",
+    "docker:dev": "docker compose -f docker-compose.dev.yml up --build",
+    "docker:dev:down": "docker compose -f docker-compose.dev.yml down",
+    "docker:prod": "docker compose -f docker-compose.prod.yml up --build -d",
+    "docker:prod:down": "docker compose -f docker-compose.prod.yml down",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f db",
-    "docker:db": "docker compose up -d db"
+    "docker:db": "docker compose up -d db",
+    "prepare": "git config core.hooksPath .githooks 2>/dev/null || true"
   },
   "engines": {
     "node": ">=20.0.0"

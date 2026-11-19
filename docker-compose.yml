@@ -4,19 +4,45 @@ services:
     container_name: zenith-pg
     restart: unless-stopped
     environment:
-      POSTGRES_USER: zenith
-      POSTGRES_PASSWORD: zenith
-      POSTGRES_DB: zenith
+      POSTGRES_USER: ${POSTGRES_USER:-zenith}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-zenith}
+      POSTGRES_DB: ${POSTGRES_DB:-zenith}
     ports:
-      - "54329:5432"
+      - "${DB_PORT:-54329}:5432"
     volumes:
       - zenith_pg_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U zenith -d zenith"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-zenith} -d ${POSTGRES_DB:-zenith}"]
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - zenith-network
+
+  admin-portal:
+    container_name: zenith-admin-portal
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL:-postgres://zenith:zenith@db:5432/zenith}
+      JWT_SECRET: ${JWT_SECRET:-dev-insecure-secret-key-32-chars-min!!}
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      PORT: 3000
+    ports:
+      - "${PORT:-3000}:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - zenith-network
 
 volumes:
   zenith_pg_data:
     driver: local
+
+networks:
+  zenith-network:
+    driver: bridge

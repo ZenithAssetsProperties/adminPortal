@@ -1,0 +1,32 @@
+#!/bin/sh
+# -----------------------------------------------------------------------------
+# Zenith Admin Portal - Pre-commit Hook
+# Verifies type safety, lint rules, and ensures sensitive files are not committed.
+# -----------------------------------------------------------------------------
+
+set -e
+
+echo "\033[36m[pre-commit]\033[0m Checking for leaked secret files..."
+
+# Prevent committing secret files or private keys
+FORBIDDEN_PATTERNS="(\.env(\.local|\.production|\.development)?$|\.pem$|id_rsa)"
+COMMITTED_FILES=$(git diff --cached --name-only)
+
+for FILE in $COMMITTED_FILES; do
+  if echo "$FILE" | grep -qE "$FORBIDDEN_PATTERNS"; then
+    if [ "$FILE" != ".env.example" ]; then
+      echo "\033[31m[pre-commit ERROR]\033[0m Attempting to commit forbidden secret or key file: $FILE"
+      echo "Please unstage this file using: git reset HEAD $FILE"
+      exit 1
+    fi
+  fi
+done
+
+echo "\033[36m[pre-commit]\033[0m Running ESLint..."
+npm run lint
+
+echo "\033[36m[pre-commit]\033[0m Running TypeScript typecheck..."
+npm run typecheck
+
+echo "\033[32m[pre-commit]\033[0m All pre-commit checks passed! ✨"
+exit 0

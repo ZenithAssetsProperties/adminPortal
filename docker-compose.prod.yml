@@ -1,0 +1,70 @@
+# -----------------------------------------------------------------------------
+# Zenith Admin Portal - Docker Compose Production Stack
+# Features: Multi-stage slim runner, restart policies, resource controls, log rotation
+# -----------------------------------------------------------------------------
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: zenith-pg-prod
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-zenith}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Database password required}
+      POSTGRES_DB: ${POSTGRES_DB:-zenith}
+    ports:
+      - "127.0.0.1:${DB_PORT:-54329}:5432"
+    volumes:
+      - zenith_pg_prod_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-zenith} -d ${POSTGRES_DB:-zenith}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
+    networks:
+      - zenith-prod-network
+
+  admin-portal:
+    container_name: zenith-admin-prod
+    restart: always
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL:-postgres://zenith:${POSTGRES_PASSWORD:-zenith}@db:5432/zenith}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required in production}
+      APP_URL: ${APP_URL:-https://admin.zenithproperties.com}
+      PORT: 3000
+    ports:
+      - "${PORT:-3000}:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2048M
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+    networks:
+      - zenith-prod-network
+
+volumes:
+  zenith_pg_prod_data:
+    driver: local
+
+networks:
+  zenith-prod-network:
+    driver: bridge

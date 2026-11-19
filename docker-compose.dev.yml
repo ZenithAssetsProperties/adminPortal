@@ -1,0 +1,57 @@
+# -----------------------------------------------------------------------------
+# Zenith Admin Portal - Docker Compose Development Environment
+# Features: Hot code reloading, host port mapping, healthy DB dependency
+# -----------------------------------------------------------------------------
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: zenith-pg-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: zenith
+      POSTGRES_PASSWORD: zenith
+      POSTGRES_DB: zenith
+    ports:
+      - "54329:5432"
+    volumes:
+      - zenith_pg_dev_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zenith -d zenith"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - zenith-dev-network
+
+  admin-portal:
+    container_name: zenith-admin-dev
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgres://zenith:zenith@db:5432/zenith
+      JWT_SECRET: dev-insecure-secret-key-32-chars-min!!
+      APP_URL: http://localhost:3000
+      PORT: 3000
+      WATCHPACK_POLLING: "true"
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - zenith-dev-network
+
+volumes:
+  zenith_pg_dev_data:
+    driver: local
+
+networks:
+  zenith-dev-network:
+    driver: bridge
