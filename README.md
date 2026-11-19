@@ -18,7 +18,42 @@ The public website (https://zenithassetsproperties.netlify.app) is a separate ap
 
 Roles: `super_admin`, `admin`, `sales_agent` (own leads/customers only), `finance`, `content`. See `src/lib/rbac.ts`.
 
-## Run it locally
+## Quick Start with Makefile
+
+The repository includes a comprehensive `Makefile` automating the developer workflow:
+
+```bash
+make help            # View all available automation targets
+make install         # Install dependencies and activate git hooks
+make dev             # Run local dev server with Turbopack (http://localhost:3000)
+make check           # Run lint, typecheck, and test suite
+make build           # Optimized production standalone build
+```
+
+## Docker Workflows
+
+We provide high-performance Docker environments for both local development and production deployment:
+
+### 1. Docker Development (Hot Reloading)
+```bash
+make docker-dev      # Launches app (with code bind-mount & hot reload) + PostgreSQL 16
+make docker-dev-down # Stops development containers
+```
+
+### 2. Docker Production (Hardened Multi-Stage)
+```bash
+make docker-prod-up  # Multi-stage standalone build (< 160MB image), unprivileged user
+make docker-prod-logs # Stream container logs
+make docker-prod-down # Stop production stack
+```
+
+## Git Flow & Quality Standards
+
+- **Branching Strategy**: See [docs/GIT_FLOW.md](docs/GIT_FLOW.md) for full branch model, Conventional Commits standard, and PR checklists.
+- **Git Hooks**: Pre-configured in `.githooks/` (`pre-commit`, `commit-msg`, `pre-push`) to prevent secret leakage and enforce passing lint, types, and tests.
+- **CI/CD Pipeline**: GitHub Actions workflow defined in `.github/workflows/ci.yml`.
+
+## Run it locally (Native)
 
 ### 1. Start the PostgreSQL Database (Docker)
 ```bash

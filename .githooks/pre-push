@@ -1,0 +1,16 @@
+#!/bin/sh
+# -----------------------------------------------------------------------------
+# Zenith Admin Portal - Pre-push Hook
+# Runs test suite and production build dry check before pushing to remote.
+# -----------------------------------------------------------------------------
+
+set -e
+
+echo "\033[36m[pre-push]\033[0m Running test suite with Vitest..."
+npm run test
+
+echo "\033[36m[pre-push]\033[0m Verifying production build..."
+npm run build
+
+echo "\033[32m[pre-push]\033[0m All push verifications passed! Ready to push. 🚀"
+exit 0

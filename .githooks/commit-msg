@@ -1,0 +1,51 @@
+#!/bin/sh
+# -----------------------------------------------------------------------------
+# Zenith Admin Portal - Commit-msg Hook
+# Enforces Conventional Commits standards.
+# Format: <type>(<scope>): <subject>
+# Types: feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert
+# -----------------------------------------------------------------------------
+
+MSG_FILE="$1"
+COMMIT_MSG=$(cat "$MSG_FILE")
+
+# Allow merge and fixup commits
+if echo "$COMMIT_MSG" | grep -qE '^(Merge|fixup!|squash!)'; then
+  exit 0
+fi
+
+# Regex for Conventional Commits
+PATTERN="^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-zA-Z0-9_-]+\))?: .{1,80}$"
+
+FIRST_LINE=$(head -n 1 "$MSG_FILE")
+
+if ! echo "$FIRST_LINE" | grep -qE "$PATTERN"; then
+  echo "\033[31m[commit-msg ERROR]\033[0m Invalid commit message format."
+  echo ""
+  echo "  Your message: \"$FIRST_LINE\""
+  echo ""
+  echo "\033[33mAccepted format:\033[0m"
+  echo "  <type>(<scope>): <subject>"
+  echo ""
+  echo "\033[33mAllowed types:\033[0m"
+  echo "  feat     - A new user or admin feature"
+  echo "  fix      - A bug fix"
+  echo "  docs     - Documentation only changes"
+  echo "  style    - Formatting, missing semi colons, etc"
+  echo "  refactor - Code change that neither fixes a bug nor adds a feature"
+  echo "  perf     - Performance improvements"
+  echo "  test     - Adding missing tests or correcting existing tests"
+  echo "  build    - Changes affecting build system or external dependencies"
+  echo "  ci       - Changes to CI configuration files and scripts"
+  echo "  chore    - Housekeeping, maintenance, or internal tooling"
+  echo "  revert   - Reverting a previous commit"
+  echo ""
+  echo "\033[32mExamples:\033[0m"
+  echo "  feat(auth): integrate session token rotation"
+  echo "  fix(properties): handle null agent assignment"
+  echo "  chore(docker): configure production multi-stage build"
+  echo ""
+  exit 1
+fi
+
+exit 0
