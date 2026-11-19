@@ -2,11 +2,12 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import clsx from "clsx";
+import { cn } from "@/lib/utils";
 import {
   LayoutDashboard, Building2, FileText, Users, MessageSquare, Target, CalendarCheck, Bookmark,
   Receipt, Wallet, UserCog, BarChart3, ScrollText, Shield, Menu, LogOut, KeyRound,
 } from "lucide-react";
+import { ZenithLogo } from "@/components/ZenithLogo";
 import { api } from "@/lib/client";
 import { ROLE_LABELS, can, type Permission, type Role } from "@/lib/rbac";
 
@@ -60,7 +61,7 @@ export default function AdminShell({ user, children }: { user: { name: string; e
         const active = n.href === "/admin" ? pathname === "/admin" : pathname.startsWith(n.href);
         return (
           <Link key={n.href} href={n.href} onClick={() => setOpen(false)} aria-current={active ? "page" : undefined}
-            className={clsx("flex items-center gap-3 px-3 py-2 text-sm transition-colors", active ? "bg-brand-700 text-white" : "text-brand-200 hover:bg-brand-800 hover:text-white")}>
+            className={cn("flex items-center gap-3 px-3 py-2 text-sm transition-colors", active ? "bg-brand-700 text-white" : "text-brand-200 hover:bg-brand-800 hover:text-white")}>
             <n.icon className="size-4 shrink-0" aria-hidden /> {n.label}
           </Link>
         );
@@ -70,10 +71,9 @@ export default function AdminShell({ user, children }: { user: { name: string; e
 
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[240px_1fr]">
-      <aside className={clsx("fixed inset-y-0 left-0 z-30 flex w-60 flex-col bg-brand-900 transition-transform lg:static lg:translate-x-0", open ? "translate-x-0" : "-translate-x-full")}>
+      <aside className={cn("fixed inset-y-0 left-0 z-30 flex w-60 flex-col bg-brand-900 transition-transform lg:static lg:translate-x-0", open ? "translate-x-0" : "-translate-x-full")}>
         <div className="border-b border-brand-800 px-5 py-5">
-          <div className="font-heading text-2xl text-white">Zenith</div>
-          <div className="text-[10px] uppercase tracking-[0.25em] text-brand-400">Back office</div>
+          <ZenithLogo size="md" subtitle="Staff Back Office" />
         </div>
         {nav}
         <div className="border-t border-brand-800 p-3 text-sm">
@@ -84,9 +84,11 @@ export default function AdminShell({ user, children }: { user: { name: string; e
       </aside>
       {open && <div className="fixed inset-0 z-20 bg-brand-950/50 lg:hidden" onClick={() => setOpen(false)} />}
       <div className="min-w-0">
-        <header className="flex items-center gap-3 border-b border-line bg-white px-4 py-3 lg:hidden">
-          <button onClick={() => setOpen(true)} aria-label="Open menu"><Menu className="size-6 text-brand-800" /></button>
-          <span className="font-heading text-xl text-brand-900">Zenith Back Office</span>
+        <header className="flex items-center justify-between border-b border-line bg-white px-4 py-3 lg:hidden">
+          <div className="flex items-center gap-3">
+            <button onClick={() => setOpen(true)} aria-label="Open menu"><Menu className="size-6 text-brand-800" /></button>
+            <ZenithLogo size="sm" theme="light" subtitle="Back office" />
+          </div>
         </header>
         <main className="mx-auto max-w-7xl p-4 sm:p-6 lg:p-8">{children}</main>
       </div>

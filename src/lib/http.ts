@@ -37,6 +37,31 @@ export function getIp(req: Request): string | null {
   return h.get("x-real-ip");
 }
 
+type ErrorWithCause = {
+  code?: string;
+  message?: string;
+  cause?: {
+    code?: string;
+    errors?: Array<{ code?: string }>;
+  };
+};
+
+function isConnError(err: unknown): boolean {
+  if (!err) return false;
+  const e = err as ErrorWithCause;
+  if (e.code === "ECONNREFUSED" || e.code === "ENOTFOUND" || e.code === "ETIMEDOUT") return true;
+  if (e.cause) {
+    if (e.cause.code === "ECONNREFUSED" || e.cause.code === "ENOTFOUND" || e.cause.code === "ETIMEDOUT") return true;
+    const causeStr = String(e.cause);
+    if (causeStr.includes("ECONNREFUSED") || causeStr.includes("connect ECONNREFUSED")) return true;
+    if (Array.isArray(e.cause.errors)) {
+      if (e.cause.errors.some((inner) => inner?.code === "ECONNREFUSED" || String(inner).includes("ECONNREFUSED"))) return true;
+    }
+  }
+  const str = String(e.message || err);
+  return str.includes("ECONNREFUSED") || str.includes("DATABASE_URL is not set") || str.includes("connect ECONNREFUSED");
+}
+
 export function handleError(e: unknown): NextResponse {
   if (e instanceof ApiError) {
     return NextResponse.json({ error: e.message, details: e.details }, { status: e.status });
@@ -44,6 +69,17 @@ export function handleError(e: unknown): NextResponse {
   if (e instanceof ZodError) {
     return NextResponse.json({ error: "Invalid input", details: e.issues.map((i) => ({ path: i.path.join("."), message: i.message })) }, { status: 400 });
   }
+
+  // Gracefully handle PostgreSQL connection failures
+  if (isConnError(e)) {
+    console.warn("DATABASE CONNECTION FAILURE:", String((e as { message?: string })?.message || e));
+    return NextResponse.json({
+      error: "Database service unavailable",
+      code: "DATABASE_UNAVAILABLE",
+      message: "Cannot connect to the PostgreSQL database. Please ensure PostgreSQL is running (e.g. `npm run docker:up` or native Postgres on port 5432) or check DATABASE_URL in .env.local.",
+    }, { status: 503 });
+  }
+
   console.error("UNHANDLED API ERROR", e);
   return NextResponse.json({ error: "Something went wrong on our side" }, { status: 500 });
 }
@@ -80,7 +116,13 @@ type AdminCtx = { req: NextRequest; staff: StaffUser; params: Record<string, str
 function sameOrigin(req: NextRequest) {
   const origin = req.headers.get("origin");
   if (!origin) return true; // non-browser clients and same-origin GETs
-  try { return new URL(origin).host === req.headers.get("host"); } catch { return false; }
+  try {
+    const originHost = new URL(origin).host;
+    const host = req.headers.get("x-forwarded-host") || req.headers.get("host");
+    return originHost === host;
+  } catch {
+    return false;
+  }
 }
 
 export function adminRoute(

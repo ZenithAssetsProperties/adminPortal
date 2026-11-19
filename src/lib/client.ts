@@ -15,7 +15,7 @@ export async function api<T = unknown>(path: string, init: { method?: string; bo
   if (res.status === 401 && !path.includes("/auth/")) { window.location.href = "/login?expired=1"; throw new ApiFail(401, "Session ended"); }
   if (!res.ok) {
     const detail = Array.isArray(json.details) ? json.details.map((d: { path: string; message: string }) => `${d.path}: ${d.message}`).join("; ") : "";
-    throw new ApiFail(res.status, [json.error ?? "Request failed", detail].filter(Boolean).join(" — "), json.details);
+    throw new ApiFail(res.status, [json.message ?? json.error ?? "Request failed", detail].filter(Boolean).join(" — "), json.details);
   }
   return json as T;
 }

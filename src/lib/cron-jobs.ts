@@ -5,6 +5,7 @@ import { releasePropertyIfFree } from "@/lib/reservations";
 import { totalPaid } from "@/lib/payments";
 import { formatNaira } from "@/lib/money";
 import { monthKey, monthlyDue, outstanding } from "@/lib/transactions";
+import { cleanupExpiredRateLimits } from "@/lib/ratelimit";
 
 async function alreadySent(customerId: string, type: string) {
   const [r] = await db.select({ id: schema.notifications.id }).from(schema.notifications)
@@ -12,8 +13,10 @@ async function alreadySent(customerId: string, type: string) {
   return Boolean(r);
 }
 
-/** Expire overdue holds and send one "expires tomorrow" reminder per reservation. */
+/** Expire overdue holds, send one "expires tomorrow" reminder per reservation, and prune expired rate limits. */
 export async function expireReservations(now = new Date()) {
+  // Purge expired rate limits to maintain high-throughput indexing and avoid table bloat
+  await cleanupExpiredRateLimits(now).catch(() => {});
   const r = schema.reservations;
   // Checkout started but never paid: these never held the property, so just close them quietly.
   await db.update(r).set({ status: "expired" }).where(and(eq(r.status, "pending"), isNotNull(r.expiresAt), lt(r.expiresAt, now)));

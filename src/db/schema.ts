@@ -112,7 +112,14 @@ export const properties = pgTable("properties", {
   createdAt: createdAt(),
   updatedAt: updatedAt(),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
-}, (t) => [index("properties_status_idx").on(t.status), index("properties_city_idx").on(t.city)]);
+}, (t) => [
+  index("properties_status_idx").on(t.status),
+  index("properties_city_idx").on(t.city),
+  index("properties_status_type_idx").on(t.status, t.type),
+  index("properties_featured_idx").on(t.featured),
+  index("properties_created_idx").on(t.createdAt),
+  index("properties_price_idx").on(t.priceKobo),
+]);
 
 export const propertyMedia = pgTable("property_media", {
   id: id(),
@@ -146,7 +153,12 @@ export const documents = pgTable("documents", {
   approvedBy: uuid("approved_by").references(() => staff.id, { onDelete: "set null" }),
   approvedAt: timestamp("approved_at", { withTimezone: true }),
   createdAt: createdAt(),
-}, (t) => [index("documents_group_idx").on(t.groupId), index("documents_customer_idx").on(t.customerId)]);
+}, (t) => [
+  index("documents_group_idx").on(t.groupId),
+  index("documents_customer_idx").on(t.customerId),
+  index("documents_property_idx").on(t.propertyId),
+  index("documents_status_idx").on(t.status),
+]);
 
 export const documentAccess = pgTable("document_access", {
   id: id(),
@@ -193,7 +205,11 @@ export const enquiries = pgTable("enquiries", {
   source: text("source"),
   handled: boolean("handled").notNull().default(false),
   createdAt: createdAt(),
-});
+}, (t) => [
+  index("enquiries_handled_idx").on(t.handled),
+  index("enquiries_created_idx").on(t.createdAt),
+  index("enquiries_property_idx").on(t.propertyId),
+]);
 
 export const inspections = pgTable("inspections", {
   id: id(),
@@ -213,7 +229,13 @@ export const inspections = pgTable("inspections", {
   staffNote: text("staff_note"),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
-});
+}, (t) => [
+  index("inspections_customer_idx").on(t.customerId),
+  index("inspections_property_idx").on(t.propertyId),
+  index("inspections_status_idx").on(t.status),
+  index("inspections_assigned_idx").on(t.assignedTo),
+  index("inspections_date_idx").on(t.preferredDate),
+]);
 
 // ---------- money ----------
 export const reservations = pgTable("reservations", {
@@ -225,7 +247,11 @@ export const reservations = pgTable("reservations", {
   expiresAt: timestamp("expires_at", { withTimezone: true }),
   termsAcceptedAt: timestamp("terms_accepted_at", { withTimezone: true }),
   createdAt: createdAt(),
-});
+}, (t) => [
+  index("reservations_status_expires_idx").on(t.status, t.expiresAt),
+  index("reservations_property_idx").on(t.propertyId),
+  index("reservations_customer_idx").on(t.customerId),
+]);
 
 export const transactions = pgTable("transactions", {
   id: id(),
@@ -239,7 +265,12 @@ export const transactions = pgTable("transactions", {
   agentId: uuid("agent_id").references(() => staff.id, { onDelete: "set null" }),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
-}, (t) => [index("tx_customer_idx").on(t.customerId)]);
+}, (t) => [
+  index("tx_customer_idx").on(t.customerId),
+  index("tx_property_idx").on(t.propertyId),
+  index("tx_agent_idx").on(t.agentId),
+  index("tx_stage_idx").on(t.stage),
+]);
 
 export const transactionEvents = pgTable("transaction_events", {
   id: id(),
@@ -263,7 +294,12 @@ export const payments = pgTable("payments", {
   recordedBy: uuid("recorded_by").references(() => staff.id, { onDelete: "set null" }),
   paidAt: timestamp("paid_at", { withTimezone: true }),
   createdAt: createdAt(),
-}, (t) => [index("payments_tx_idx").on(t.transactionId)]);
+}, (t) => [
+  index("payments_tx_idx").on(t.transactionId),
+  index("payments_customer_idx").on(t.customerId),
+  index("payments_status_idx").on(t.status),
+  index("payments_created_idx").on(t.createdAt),
+]);
 
 export const receipts = pgTable("receipts", {
   id: id(),
@@ -298,7 +334,10 @@ export const notifications = pgTable("notifications", {
   body: text("body").notNull(),
   readAt: timestamp("read_at", { withTimezone: true }),
   createdAt: createdAt(),
-});
+}, (t) => [
+  index("notifications_customer_idx").on(t.customerId, t.readAt),
+  index("notifications_staff_idx").on(t.staffId, t.readAt),
+]);
 
 export const messageLog = pgTable("message_log", {
   id: id(),
@@ -339,4 +378,6 @@ export const rateLimits = pgTable("rate_limits", {
   key: text("key").primaryKey(),
   count: integer("count").notNull().default(0),
   resetAt: timestamp("reset_at", { withTimezone: true }).notNull(),
-});
+}, (t) => [
+  index("rate_limits_reset_idx").on(t.resetAt),
+]);

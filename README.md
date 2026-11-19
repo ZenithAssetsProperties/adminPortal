@@ -20,13 +20,24 @@ Roles: `super_admin`, `admin`, `sales_agent` (own leads/customers only), `financ
 
 ## Run it locally
 
+### 1. Start the PostgreSQL Database (Docker)
 ```bash
-pnpm install
-docker run -d --name zenith-pg -e POSTGRES_PASSWORD=zenith -e POSTGRES_USER=zenith -e POSTGRES_DB=zenith -p 54329:5432 postgres:16-alpine
-cp .env.example .env.local        # then set SESSION_SECRET (32+ chars) and SEED_ADMIN_PASSWORD
-pnpm db:migrate
-pnpm db:seed                      # creates the first super admin from SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD
-pnpm dev                          # http://localhost:3000
+npm run docker:up
+# Or using pnpm:
+# pnpm docker:up
+```
+
+### 2. Setup Environment & Seed Database
+```bash
+cp .env.example .env.local        # verify DATABASE_URL and SESSION_SECRET
+npm run db:migrate
+npm run db:seed                   # seeds the super admin from SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD
+npm run db:demo                   # (optional) seeds rich mock portfolio & customer activity
+```
+
+### 3. Start Development Server
+```bash
+npm run dev                       # http://localhost:3000
 ```
 
 Sign in at `/login` with the seeded email and password.
