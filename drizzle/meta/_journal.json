@@ -8,6 +8,20 @@
       "when": 1794291847475,
       "tag": "0000_amusing_fixer",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1795840197210,
+      "tag": "0001_steady_steve_rogers",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795841782881,
+      "tag": "0002_marvelous_scrambler",
+      "breakpoints": true
     }
   ]
 }

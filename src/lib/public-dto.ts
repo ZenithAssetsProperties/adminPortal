@@ -7,8 +7,12 @@ import { signedUrl } from "@/lib/storage";
 export type PropertyRow = typeof schema.properties.$inferSelect;
 export const originOf = (req: Request) => new URL(req.url).origin;
 
-/** Drafts and removed properties never appear publicly. */
-export const publicVisible = and(isNull(schema.properties.deletedAt), ne(schema.properties.status, "draft"));
+/** Drafts, removed, and unverified properties never appear publicly to end users. */
+export const publicVisible = and(
+  isNull(schema.properties.deletedAt),
+  ne(schema.properties.status, "draft"),
+  eq(schema.properties.verified, true),
+);
 
 export function uuidOr404(id: string) {
   if (!z.string().uuid().safeParse(id).success) throw notFound();
@@ -24,7 +28,8 @@ export async function cardDto(p: PropertyRow, origin: string) {
     id: p.id, slug: p.slug, name: p.name, type: p.type, purpose: p.purpose, status: p.status,
     state: p.state, city: p.city, area: p.area, priceKobo: p.priceKobo,
     sizeSqm: p.sizeSqm, landSizeSqm: p.landSizeSqm, bedrooms: p.bedrooms, bathrooms: p.bathrooms, parking: p.parking,
-    developmentStatus: p.developmentStatus, verified: p.verified, featured: p.featured, priceReduced: p.priceReduced,
+    developmentStatus: p.developmentStatus, verified: p.verified, verificationHash: p.verificationHash, verifiedAt: p.verifiedAt,
+    featured: p.featured, priceReduced: p.priceReduced,
     limitedAvailability: p.limitedAvailability, paymentPlanAvailable: p.paymentPlanAvailable, createdAt: p.createdAt,
     coverUrl: p.coverImage ? await signedUrl(p.coverImage, origin, undefined, 3600) : null,
   };

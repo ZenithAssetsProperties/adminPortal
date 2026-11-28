@@ -22,54 +22,51 @@ DOCKER_BASE:= docker compose -f docker-compose.yml
 
 .PHONY: help
 help: ## Show this interactive help banner
-	@echo ""
-	@echo "$(BOLD)$(CYAN)  Zenith Assets & Properties - Admin Portal CLI$(RESET)"
-	@echo "$(BOLD)$(CYAN)  ==============================================$(RESET)"
-	@echo ""
-	@echo "$(YELLOW)Usage:$(RESET) make [target]"
-	@echo ""
+	@printf "\n$(BOLD)$(CYAN)  Zenith Assets & Properties - Admin Portal CLI$(RESET)\n"
+	@printf "$(BOLD)$(CYAN)  ==============================================$(RESET)\n\n"
+	@printf "$(YELLOW)Usage:$(RESET) make [target]\n\n"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
-		awk 'BEGIN {FS = ":.*?## "}; {printf "  $(GREEN)%-20s$(RESET) %s\n", $$1, $$2}'
-	@echo ""
+		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[32m%-20s\033[0m %s\n", $$1, $$2}'
+	@printf "\n"
 
 # -----------------------------------------------------------------------------
 # Setup & Dependency Management
 # -----------------------------------------------------------------------------
 .PHONY: install
 install: ## Install dependencies and register git hooks
-	@echo "$(CYAN)--> Installing NPM dependencies...$(RESET)"
+	@printf "$(CYAN)--> Installing NPM dependencies...$(RESET)\n"
 	@npm install
 	@$(MAKE) hooks-install
-	@echo "$(GREEN)✔ Dependencies installed and git hooks configured successfully.$(RESET)"
+	@printf "$(GREEN)✔ Dependencies installed and git hooks configured successfully.$(RESET)\n"
 
 .PHONY: hooks-install
 hooks-install: ## Configure git to execute hooks from .githooks directory
-	@echo "$(CYAN)--> Configuring Git hooks path...$(RESET)"
+	@printf "$(CYAN)--> Configuring Git hooks path...$(RESET)\n"
 	@git config core.hooksPath .githooks 2>/dev/null || true
 	@chmod +x .githooks/* 2>/dev/null || true
-	@echo "$(GREEN)✔ Git hooks enabled from .githooks.$(RESET)"
+	@printf "$(GREEN)✔ Git hooks enabled from .githooks.$(RESET)\n"
 
 # -----------------------------------------------------------------------------
 # Code Quality, Formatting & Testing
 # -----------------------------------------------------------------------------
 .PHONY: lint
 lint: ## Run ESLint static analysis checks
-	@echo "$(CYAN)--> Running ESLint...$(RESET)"
+	@printf "$(CYAN)--> Running ESLint...$(RESET)\n"
 	@npm run lint
 
 .PHONY: lint-fix
 lint-fix: ## Run ESLint and automatically fix fixable issues
-	@echo "$(CYAN)--> Running ESLint --fix...$(RESET)"
+	@printf "$(CYAN)--> Running ESLint --fix...$(RESET)\n"
 	@npm run lint:fix
 
 .PHONY: typecheck
 typecheck: ## Run TypeScript strict type verification
-	@echo "$(CYAN)--> Checking TypeScript types...$(RESET)"
+	@printf "$(CYAN)--> Checking TypeScript types...$(RESET)\n"
 	@npm run typecheck
 
 .PHONY: test
 test: ## Run Vitest unit and integration tests
-	@echo "$(CYAN)--> Running tests with Vitest...$(RESET)"
+	@printf "$(CYAN)--> Running tests with Vitest...$(RESET)\n"
 	@npm run test
 
 .PHONY: test-watch
@@ -78,21 +75,21 @@ test-watch: ## Run tests in interactive watch mode
 
 .PHONY: check
 check: lint typecheck test ## Run full pre-flight verification (lint, typecheck, test)
-	@echo "$(GREEN)✔ All quality checks passed successfully!$(RESET)"
+	@printf "$(GREEN)✔ All quality checks passed successfully!$(RESET)\n"
 
 # -----------------------------------------------------------------------------
 # Local Development & Build
 # -----------------------------------------------------------------------------
 .PHONY: dev
 dev: ## Start local Next.js development server with Turbopack
-	@echo "$(CYAN)--> Launching Zenith Admin Portal development server...$(RESET)"
+	@printf "$(CYAN)--> Launching Zenith Admin Portal development server...$(RESET)\n"
 	@npm run dev
 
 .PHONY: build
 build: ## Build optimized production Next.js standalone package
-	@echo "$(CYAN)--> Building production release...$(RESET)"
+	@printf "$(CYAN)--> Building production release...$(RESET)\n"
 	@npm run build
-	@echo "$(GREEN)✔ Production standalone bundle generated in .next/standalone$(RESET)"
+	@printf "$(GREEN)✔ Production standalone bundle generated in .next/standalone$(RESET)\n"
 
 .PHONY: start
 start: ## Run local Next.js production server
@@ -103,17 +100,17 @@ start: ## Run local Next.js production server
 # -----------------------------------------------------------------------------
 .PHONY: db-up
 db-up: ## Start PostgreSQL container in background
-	@echo "$(CYAN)--> Starting PostgreSQL container...$(RESET)"
+	@printf "$(CYAN)--> Starting PostgreSQL container...$(RESET)\n"
 	@npm run docker:db
 
 .PHONY: db-down
 db-down: ## Stop PostgreSQL container
-	@echo "$(CYAN)--> Stopping PostgreSQL container...$(RESET)"
+	@printf "$(CYAN)--> Stopping PostgreSQL container...$(RESET)\n"
 	@npm run docker:down
 
 .PHONY: db-migrate
 db-migrate: ## Apply database schema migrations
-	@echo "$(CYAN)--> Running database migrations...$(RESET)"
+	@printf "$(CYAN)--> Running database migrations...$(RESET)\n"
 	@npm run db:migrate
 
 .PHONY: db-generate
@@ -122,34 +119,34 @@ db-generate: ## Generate new Drizzle migration files from schema
 
 .PHONY: db-seed
 db-seed: ## Seed database with base admin users and configuration
-	@echo "$(CYAN)--> Seeding database...$(RESET)"
+	@printf "$(CYAN)--> Seeding database...$(RESET)\n"
 	@npm run db:seed
 
 .PHONY: db-demo
 db-demo: ## Seed database with full realistic property and transaction demo dataset
-	@echo "$(CYAN)--> Seeding demo dataset...$(RESET)"
+	@printf "$(CYAN)--> Seeding demo dataset...$(RESET)\n"
 	@npm run db:demo
 
 .PHONY: db-reset
 db-reset: db-migrate db-seed db-demo ## Re-run migrations and reload seed and demo data
-	@echo "$(GREEN)✔ Database successfully reset and seeded!$(RESET)"
+	@printf "$(GREEN)✔ Database successfully reset and seeded!$(RESET)\n"
 
 # -----------------------------------------------------------------------------
 # Docker Development Stack
 # -----------------------------------------------------------------------------
 .PHONY: docker-dev-build
 docker-dev-build: ## Build the development Docker image
-	@echo "$(CYAN)--> Building Docker development image...$(RESET)"
+	@printf "$(CYAN)--> Building Docker development image...$(RESET)\n"
 	@$(DOCKER_DEV) build
 
 .PHONY: docker-dev
 docker-dev: ## Launch development Docker environment with hot-reloading
-	@echo "$(CYAN)--> Launching Docker development environment...$(RESET)"
+	@printf "$(CYAN)--> Launching Docker development environment...$(RESET)\n"
 	@$(DOCKER_DEV) up --build
 
 .PHONY: docker-dev-down
 docker-dev-down: ## Stop and remove development Docker containers
-	@echo "$(CYAN)--> Stopping Docker development environment...$(RESET)"
+	@printf "$(CYAN)--> Stopping Docker development environment...$(RESET)\n"
 	@$(DOCKER_DEV) down
 
 .PHONY: docker-dev-logs
@@ -165,18 +162,18 @@ docker-dev-shell: ## Open interactive shell inside running development container
 # -----------------------------------------------------------------------------
 .PHONY: docker-prod-build
 docker-prod-build: ## Build multi-stage production Docker image
-	@echo "$(CYAN)--> Building production Docker image...$(RESET)"
+	@printf "$(CYAN)--> Building production Docker image...$(RESET)\n"
 	@$(DOCKER_PRD) build
 
 .PHONY: docker-prod-up
 docker-prod-up: ## Launch production Docker stack in detached mode
-	@echo "$(CYAN)--> Starting production Docker stack...$(RESET)"
+	@printf "$(CYAN)--> Starting production Docker stack...$(RESET)\n"
 	@$(DOCKER_PRD) up -d --build
-	@echo "$(GREEN)✔ Zenith Admin Portal running on http://localhost:3000$(RESET)"
+	@printf "$(GREEN)✔ Zenith Admin Portal running on http://localhost:3000$(RESET)\n"
 
 .PHONY: docker-prod-down
 docker-prod-down: ## Stop and remove production Docker containers
-	@echo "$(CYAN)--> Stopping production Docker stack...$(RESET)"
+	@printf "$(CYAN)--> Stopping production Docker stack...$(RESET)\n"
 	@$(DOCKER_PRD) down
 
 .PHONY: docker-prod-logs
@@ -188,20 +185,18 @@ docker-prod-logs: ## View production container logs
 # -----------------------------------------------------------------------------
 .PHONY: clean
 clean: ## Remove build artifacts, caches, and logs
-	@echo "$(CYAN)--> Cleaning build artifacts...$(RESET)"
+	@printf "$(CYAN)--> Cleaning build artifacts...$(RESET)\n"
 	@rm -rf .next out dist coverage *.tsbuildinfo .uploads
-	@echo "$(GREEN)✔ Clean complete.$(RESET)"
+	@printf "$(GREEN)✔ Clean complete.$(RESET)\n"
 
 .PHONY: clean-all
 clean-all: clean ## Deep clean including node_modules and lockfiles
-	@echo "$(RED)--> Performing deep clean (removing node_modules)...$(RESET)"
+	@printf "$(RED)--> Performing deep clean (removing node_modules)...$(RESET)\n"
 	@rm -rf node_modules
-	@echo "$(GREEN)✔ Deep clean complete. Run 'make install' to restore.$(RESET)"
+	@printf "$(GREEN)✔ Deep clean complete. Run 'make install' to restore.$(RESET)\n"
 
 .PHONY: verify-pr
 verify-pr: check build ## Full PR pre-flight checklist: check, build
-	@echo ""
-	@echo "$(BOLD)$(GREEN)=======================================================$(RESET)"
-	@echo "$(BOLD)$(GREEN)  ✔ PR Pre-flight verification passed successfully!     $(RESET)"
-	@echo "$(BOLD)$(GREEN)=======================================================$(RESET)"
-	@echo ""
+	@printf "\n$(BOLD)$(GREEN)=======================================================$(RESET)\n"
+	@printf "$(BOLD)$(GREEN)  ✔ PR Pre-flight verification passed successfully!     $(RESET)\n"
+	@printf "$(BOLD)$(GREEN)=======================================================$(RESET)\n\n"

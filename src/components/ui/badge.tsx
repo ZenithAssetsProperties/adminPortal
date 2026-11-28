@@ -51,7 +51,7 @@ export function Badge({ className, variant, tone, dot, children, ...props }: Bad
 
 const STATUS_TONE: Record<string, "green" | "amber" | "red" | "blue" | "grey"> = {
   available: "green", approved: "green", success: "green", confirmed: "green", completed: "green", active: "green", purchased: "green", ownership_completed: "green",
-  reserved: "amber", pending: "amber", requested: "amber", new: "blue", contacted: "blue", negotiation: "amber", inspection_scheduled: "amber",
+  reserved: "amber", pending: "amber", requested: "amber", new: "blue", in_review: "blue", contacted: "blue", negotiation: "amber", inspection_scheduled: "amber",
   sold: "grey", draft: "grey", expired: "grey", converted: "green",
   cancelled: "red", failed: "red", rejected: "red", denied: "red", lost: "red", abandoned: "red",
 };

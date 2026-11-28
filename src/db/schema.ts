@@ -27,6 +27,15 @@ export const txStage = pgEnum("tx_stage", [
 ]);
 export const paymentKind = pgEnum("payment_kind", ["reservation", "deposit", "installment", "balance", "full"]);
 export const paymentStatus = pgEnum("payment_status", ["pending", "success", "failed", "abandoned"]);
+export const piiAccessLevel = pgEnum("pii_access_level", ["full", "masked", "redacted"]);
+export const overrideEffect = pgEnum("override_effect", ["allow", "deny"]);
+export const consentPurpose = pgEnum("consent_purpose", [
+  "marketing", "analytics", "kyc_processing", "third_party_sharing", "communications",
+]);
+export const dsarType = pgEnum("dsar_type", ["access", "erasure", "rectification", "restriction", "portability"]);
+export const dsarStatus = pgEnum("dsar_status", ["pending", "in_review", "approved", "completed", "rejected"]);
+export const verificationStatus = pgEnum("verification_status", ["unverified", "pending_review", "agent_assigned", "verified", "rejected"]);
+export const vettingStage = pgEnum("vetting_stage", ["intake_scan", "registry_check", "physical_match", "final_seal", "rejected"]);
 
 const id = () => uuid("id").primaryKey().defaultRandom();
 const createdAt = () => timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
@@ -97,6 +106,11 @@ export const properties = pgTable("properties", {
     estimatedCosts?: string; risks?: string; horizon?: string;
   } | null>(),
   verified: boolean("verified").notNull().default(false),
+  verificationStatus: verificationStatus("verification_status").notNull().default("unverified"),
+  verificationHash: text("verification_hash"),
+  verifiedBy: uuid("verified_by").references(() => staff.id, { onDelete: "set null" }),
+  verifiedAt: timestamp("verified_at", { withTimezone: true }),
+  rejectionReason: text("rejection_reason"),
   verificationNotes: text("verification_notes"),
   paymentPlanAvailable: boolean("payment_plan_available").notNull().default(false),
   minDepositPercent: integer("min_deposit_percent").notNull().default(30),
@@ -147,6 +161,22 @@ export const documents = pgTable("documents", {
   storageKey: text("storage_key").notNull(),
   mimeType: text("mime_type").notNull(),
   sizeBytes: integer("size_bytes").notNull(),
+  sha256Hash: text("sha256_hash"),
+  integritySeal: text("integrity_seal"),
+  fraudFlag: text("fraud_flag"),
+  lastVerifiedAt: timestamp("last_verified_at", { withTimezone: true }),
+  issuingAuthority: text("issuing_authority"),
+  registryRef: text("registry_ref"),
+  issuedDate: date("issued_date"),
+  expiresAt: date("expires_at"),
+  vettingChecklist: jsonb("vetting_checklist").$type<{
+    registryVerified: boolean;
+    ownerNameMatches: boolean;
+    boundariesClear: boolean;
+    noEncumbrance: boolean;
+  } | null>(),
+  rejectionReason: text("rejection_reason"),
+  reviewNotes: text("review_notes"),
   status: docStatus("status").notNull().default("pending"),
   visibility: docVisibility("visibility").notNull().default("request_only"),
   uploadedBy: uuid("uploaded_by").references(() => staff.id, { onDelete: "set null" }),
@@ -158,6 +188,21 @@ export const documents = pgTable("documents", {
   index("documents_customer_idx").on(t.customerId),
   index("documents_property_idx").on(t.propertyId),
   index("documents_status_idx").on(t.status),
+  index("documents_sha256_idx").on(t.sha256Hash),
+  index("documents_registry_ref_idx").on(t.registryRef),
+]);
+
+export const documentVettingLogs = pgTable("document_vetting_logs", {
+  id: id(),
+  documentId: uuid("document_id").notNull().references(() => documents.id, { onDelete: "cascade" }),
+  reviewerId: uuid("reviewer_id").references(() => staff.id, { onDelete: "set null" }),
+  stage: vettingStage("stage").notNull(),
+  passed: boolean("passed").notNull(),
+  notes: text("notes"),
+  checklist: jsonb("checklist").$type<Record<string, boolean> | null>(),
+  createdAt: createdAt(),
+}, (t) => [
+  index("doc_vetting_logs_doc_idx").on(t.documentId, t.createdAt),
 ]);
 
 export const documentAccess = pgTable("document_access", {
@@ -381,3 +426,83 @@ export const rateLimits = pgTable("rate_limits", {
 }, (t) => [
   index("rate_limits_reset_idx").on(t.resetAt),
 ]);
+
+// ---------- privacy & rbac governance ----------
+export const rolePolicies = pgTable("role_policies", {
+  id: id(),
+  role: staffRole("role").notNull().unique(),
+  permissions: jsonb("permissions").$type<string[]>().notNull().default([]),
+  piiAccessLevel: piiAccessLevel("pii_access_level").notNull().default("masked"),
+  requireMfa: boolean("require_mfa").notNull().default(false),
+  sessionTtlMinutes: integer("session_ttl_minutes").notNull().default(30),
+  allowedIpCidrs: jsonb("allowed_ip_cidrs").$type<string[]>().notNull().default([]),
+  description: text("description"),
+  updatedBy: uuid("updated_by").references(() => staff.id, { onDelete: "set null" }),
+  updatedAt: updatedAt(),
+});
+
+export const staffPermissionOverrides = pgTable("staff_permission_overrides", {
+  id: id(),
+  staffId: uuid("staff_id").notNull().references(() => staff.id, { onDelete: "cascade" }),
+  permission: text("permission").notNull(),
+  effect: overrideEffect("effect").notNull().default("allow"),
+  reason: text("reason"),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+  grantedBy: uuid("granted_by").references(() => staff.id, { onDelete: "set null" }),
+  createdAt: createdAt(),
+}, (t) => [
+  uniqueIndex("staff_perm_override_unique").on(t.staffId, t.permission),
+  index("staff_perm_override_staff_idx").on(t.staffId),
+]);
+
+export const privacyConsents = pgTable("privacy_consents", {
+  id: id(),
+  customerId: uuid("customer_id").notNull().references(() => customers.id, { onDelete: "cascade" }),
+  purpose: consentPurpose("purpose").notNull(),
+  granted: boolean("granted").notNull().default(false),
+  policyVersion: text("policy_version").notNull().default("2026.1"),
+  source: text("source").notNull().default("web"),
+  ip: text("ip"),
+  grantedAt: timestamp("granted_at", { withTimezone: true }),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  updatedAt: updatedAt(),
+}, (t) => [
+  uniqueIndex("privacy_consent_customer_purpose_unique").on(t.customerId, t.purpose),
+  index("privacy_consent_purpose_idx").on(t.purpose, t.granted),
+]);
+
+export const privacyRequests = pgTable("privacy_requests", {
+  id: id(),
+  reference: text("reference").notNull().unique(),
+  customerId: uuid("customer_id").references(() => customers.id, { onDelete: "set null" }),
+  subjectEmail: text("subject_email").notNull(),
+  type: dsarType("type").notNull(),
+  status: dsarStatus("status").notNull().default("pending"),
+  reason: text("reason"),
+  resolutionNotes: text("resolution_notes"),
+  requestedBy: text("requested_by").notNull().default("customer"), // customer | staff
+  assignedTo: uuid("assigned_to").references(() => staff.id, { onDelete: "set null" }),
+  dueAt: timestamp("due_at", { withTimezone: true }).notNull(),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+  exportData: jsonb("export_data").$type<Record<string, unknown> | null>(),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+}, (t) => [
+  index("privacy_requests_status_idx").on(t.status, t.dueAt),
+  index("privacy_requests_customer_idx").on(t.customerId),
+]);
+
+export const privacySettings = pgTable("privacy_settings", {
+  id: id(),
+  key: text("key").notNull().unique().default("default"),
+  auditLogRetentionDays: integer("audit_log_retention_days").notNull().default(365),
+  inactiveCustomerRetentionDays: integer("inactive_customer_retention_days").notNull().default(1095),
+  dsarSlaDays: integer("dsar_sla_days").notNull().default(30),
+  maskPiiByDefault: boolean("mask_pii_by_default").notNull().default(true),
+  enforceIpAllowlist: boolean("enforce_ip_allowlist").notNull().default(false),
+  anonymizeOnErasure: boolean("anonymize_on_erasure").notNull().default(true),
+  enforceMakerChecker: boolean("enforce_maker_checker").notNull().default(true),
+  policyVersion: text("policy_version").notNull().default("2026.1"),
+  updatedBy: uuid("updated_by").references(() => staff.id, { onDelete: "set null" }),
+  updatedAt: updatedAt(),
+});

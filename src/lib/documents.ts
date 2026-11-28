@@ -2,9 +2,18 @@ import { sql } from "drizzle-orm";
 import { schema } from "@/db";
 import { badRequest } from "@/lib/http";
 import { MAX_UPLOAD_BYTES, sniffType } from "@/lib/storage";
+import { computeSha256, validateDocumentStructure } from "@/lib/crypto-integrity";
 
 export const DOC_KINDS = schema.docKind.enumValues;
 export const DOC_MIMES = ["application/pdf", "image/jpeg", "image/png"];
+export const TITLE_DOC_KINDS = [
+  "certificate_of_occupancy",
+  "governors_consent",
+  "deed_of_assignment",
+  "survey_plan",
+  "allocation_letter",
+  "title_document",
+] as const;
 
 /** SQL condition: keep only the newest version of each document group. */
 export const currentVersionOnly = sql`not exists (select 1 from documents d2 where d2.group_id = ${schema.documents.groupId} and d2.version > ${schema.documents.version})`;
@@ -24,14 +33,17 @@ export function isVisibleToCustomer(doc: DocLike, customerId: string | null, acc
   return false;
 }
 
-/** Validates an uploaded file by its real bytes: PDF, JPEG or PNG, 15 MB max. */
+/** Validates an uploaded file by its real bytes, structure, and SHA-256 digest: PDF, JPEG or PNG, 15 MB max. */
 export async function readUpload(file: unknown) {
   if (!(file instanceof File)) throw badRequest("Choose a file to upload");
   if (file.size > MAX_UPLOAD_BYTES) throw badRequest("File is too large (15 MB maximum)");
   const buf = Buffer.from(await file.arrayBuffer());
   const type = sniffType(buf);
   if (!type || !DOC_MIMES.includes(type.mime)) throw badRequest("Upload a PDF, JPG or PNG file");
-  return { buf, mime: type.mime, ext: type.ext, size: buf.length };
+  const structure = validateDocumentStructure(buf, type.mime);
+  if (!structure.valid) throw badRequest(structure.reason ?? "Document failed structural integrity check");
+  const sha256Hash = computeSha256(buf);
+  return { buf, mime: type.mime, ext: type.ext, size: buf.length, sha256Hash };
 }
 
 /** Form fields as a plain object; blank strings become undefined so optional zod fields work. */

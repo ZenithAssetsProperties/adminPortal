@@ -1,4 +1,4 @@
-import { and, desc, eq, ilike, isNull, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, ilike, isNull, ne, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/db";
 import { adminRoute, badRequest, getIp, parseQuery } from "@/lib/http";
@@ -29,6 +29,8 @@ export const GET = adminRoute("documents.read", async ({ req }) => {
     db.select({
       id: d.id, groupId: d.groupId, version: d.version, kind: d.kind, title: d.title, status: d.status, visibility: d.visibility,
       propertyId: d.propertyId, customerId: d.customerId, transactionId: d.transactionId, mimeType: d.mimeType, sizeBytes: d.sizeBytes,
+      sha256Hash: d.sha256Hash, fraudFlag: d.fraudFlag, lastVerifiedAt: d.lastVerifiedAt,
+      isSealed: sql<boolean>`${d.integritySeal} is not null`,
       createdAt: d.createdAt, propertyName: schema.properties.name, customerName: schema.customers.fullName,
       versionCount: sql<number>`(select count(*) from documents d3 where d3.group_id = ${d.groupId})::int`,
     }).from(d)
@@ -70,16 +72,40 @@ export const POST = adminRoute("documents.write", async ({ req, staff }) => {
   }
 
   const file = await readUpload(form.get("file"));
+
+  // Anti-fraud check: detect if the exact file (SHA-256) is already attached to a different property
+  if (meta.propertyId) {
+    const [dupDoc] = await db
+      .select({ id: schema.documents.id, propertyId: schema.documents.propertyId, title: schema.documents.title })
+      .from(schema.documents)
+      .where(and(eq(schema.documents.sha256Hash, file.sha256Hash), ne(schema.documents.propertyId, meta.propertyId)))
+      .limit(1);
+
+    if (dupDoc) {
+      await audit(
+        { type: "staff", id: staff.id },
+        "security.duplicate_document_blocked",
+        {
+          entity: "property",
+          entityId: meta.propertyId,
+          meta: { sha256Hash: file.sha256Hash, conflictingDocumentId: dupDoc.id, conflictingPropertyId: dupDoc.propertyId },
+          ip: getIp(req),
+        },
+      );
+      throw badRequest("Duplicate document detected: this exact file is already registered to another property.");
+    }
+  }
+
   const key = newKey(meta.propertyId ? `documents/property/${meta.propertyId}` : `documents/customer/${meta.customerId}`, file.ext);
   await putObject(key, file.buf, file.mime);
   const [row] = await db.insert(schema.documents).values({
     groupId: crypto.randomUUID(), version: 1, kind: meta.kind, title: meta.title,
     propertyId: meta.propertyId ?? null, customerId: meta.customerId ?? null, transactionId: meta.transactionId ?? null,
-    storageKey: key, mimeType: file.mime, sizeBytes: file.size, status: "pending",
+    storageKey: key, mimeType: file.mime, sizeBytes: file.size, sha256Hash: file.sha256Hash, status: "pending",
     visibility: meta.visibility ?? (meta.customerId && !meta.propertyId ? "customer_only" : "request_only"),
     uploadedBy: staff.id,
   }).returning();
-  await audit({ type: "staff", id: staff.id }, "document.upload", { entity: "document", entityId: row.id, meta: { kind: row.kind, version: 1 }, ip: getIp(req) });
+  await audit({ type: "staff", id: staff.id }, "document.upload", { entity: "document", entityId: row.id, meta: { kind: row.kind, version: 1, sha256Hash: file.sha256Hash }, ip: getIp(req) });
   const { storageKey: _omit, ...safe } = row; void _omit;
   return Response.json(safe, { status: 201 });
 });

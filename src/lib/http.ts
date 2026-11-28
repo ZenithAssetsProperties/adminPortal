@@ -4,10 +4,11 @@ import { eq } from "drizzle-orm";
 import { ZodError, ZodType } from "zod";
 import { db, schema } from "@/db";
 import {
-  STAFF_COOKIE, REFRESH_AFTER_SECONDS, STAFF_IDLE_SECONDS, cookieHeader, signStaff, verifyStaffToken,
+  STAFF_COOKIE, REFRESH_AFTER_SECONDS, cookieHeader, signStaff, verifyStaffToken,
   verifyCustomerToken,
 } from "@/lib/auth/session";
-import { can, type Permission, type Role } from "@/lib/rbac";
+import { type Permission, type PiiAccessLevel, type Role } from "@/lib/rbac";
+import { resolveStaffAccess } from "@/lib/rbac-server";
 import { rateLimit } from "@/lib/ratelimit";
 
 export class ApiError extends Error {
@@ -95,7 +96,7 @@ export function parseQuery<T>(req: NextRequest, schemaZ: ZodType<T>): T {
 
 // ---------------------------------------------------------------- staff (admin) routes
 export type StaffUser = {
-  id: string; name: string; email: string; role: Role;
+  id: string; name: string; email: string; role: Role; piiAccessLevel?: PiiAccessLevel;
 };
 
 /** Reads the staff session cookie and confirms the account is still active. */
@@ -135,12 +136,15 @@ export function adminRoute(
       if (req.method !== "GET" && !sameOrigin(req)) throw forbidden("Cross-site request blocked");
       const session = await currentStaff();
       if (!session) throw unauthorized();
-      if (perm && !can(session.staff.role, perm)) throw forbidden();
-      const result = await handler({ req, staff: session.staff, params: await ctx.params });
+      const access = await resolveStaffAccess(session.staff.id, session.staff.role);
+      if (perm && !access.permissions.includes(perm)) throw forbidden();
+      const staffWithPrivacy: StaffUser = { ...session.staff, piiAccessLevel: access.piiAccessLevel };
+      const result = await handler({ req, staff: staffWithPrivacy, params: await ctx.params });
       const res = result instanceof Response ? result : NextResponse.json(result ?? { ok: true });
       // sliding session: keep active users signed in, idle users get timed out
       if (Math.floor(Date.now() / 1000) - session.issuedAt > REFRESH_AFTER_SECONDS) {
-        res.headers.append("Set-Cookie", cookieHeader(STAFF_COOKIE, await signStaff(session.staff.id, await getTv(session.staff.id)), STAFF_IDLE_SECONDS));
+        const ttlSeconds = Math.max(300, access.sessionTtlMinutes * 60);
+        res.headers.append("Set-Cookie", cookieHeader(STAFF_COOKIE, await signStaff(session.staff.id, await getTv(session.staff.id)), ttlSeconds));
       }
       return res;
     } catch (e) { return handleError(e); }

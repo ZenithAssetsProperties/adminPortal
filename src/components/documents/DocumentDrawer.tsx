@@ -1,19 +1,27 @@
 "use client";
 import { useRef, useState } from "react";
-import { Download, Trash2 } from "lucide-react";
-import { Button, ErrorNote, Field, Modal, Select, Spinner, StatusBadge, Input } from "@/components/ui";
+import { Download, Lock, ShieldAlert, ShieldCheck, Trash2 } from "lucide-react";
+import { Button, ErrorNote, Field, Modal, Select, Spinner, StatusBadge, Input, VerificationBadge } from "@/components/ui";
 import { api, fmtDate, useApi } from "@/lib/client";
 import CustomerPicker from "./CustomerPicker";
 import { fmtSize, kindLabel } from "./shared";
 
 type Ver = { id: string; version: number; status: string; sizeBytes: number; mimeType: string; createdAt: string; approvedAt: string | null };
-type Detail = { document: { id: string; title: string; kind: string; status: string; visibility: string; propertyName: string | null; customerId: string | null; customerName: string | null; customerEmail: string | null; version: number }; versions: Ver[] };
+type Detail = {
+  document: {
+    id: string; title: string; kind: string; status: string; visibility: string;
+    propertyName: string | null; customerId: string | null; customerName: string | null; customerEmail: string | null;
+    version: number; sha256Hash?: string | null; integritySeal?: string | null; fraudFlag?: string | null;
+  };
+  versions: Ver[];
+};
 
 export default function DocumentDrawer({ id, onClose, onChanged, perms }: { id: string | null; onClose: () => void; onChanged: () => void; perms: string[] }) {
   const { data, loading, error, reload } = useApi<Detail>(id ? `/api/admin/documents/${id}` : null);
   const [err, setErr] = useState<string | null>(null);
   const [assign, setAssign] = useState("");
   const [title, setTitle] = useState<string | null>(null);
+  const [integrityMsg, setIntegrityMsg] = useState<{ intact: boolean; text: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const canWrite = perms.includes("documents.write"); const canApprove = perms.includes("documents.approve");
   const d = data?.document;
@@ -33,10 +41,43 @@ export default function DocumentDrawer({ id, onClose, onChanged, perms }: { id: 
       {loading && !data ? <Spinner /> : !d ? <ErrorNote message={error} /> : (
         <div className="space-y-6">
           <div className="flex flex-wrap items-center gap-3 text-sm">
-            <StatusBadge value={d.status} /><span>{kindLabel(d.kind)}</span><span className="text-brand-400">· version {d.version}</span>
+            <StatusBadge value={d.status} />
+            {d.integritySeal && <VerificationBadge state="sealed" />}
+            {d.fraudFlag && <VerificationBadge state="tampered" />}
+            <span>{kindLabel(d.kind)}</span><span className="text-brand-400">· version {d.version}</span>
             {d.propertyName && <span className="text-brand-500">· {d.propertyName}</span>}
             {d.customerName && <span className="text-brand-500">· {d.customerName}</span>}
           </div>
+          {d.sha256Hash && (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-sm border border-border bg-muted/30 px-3 py-2 text-xs">
+              <div className="flex items-center gap-2">
+                <Lock className="size-3.5 text-brand-700" />
+                <span className="font-medium text-foreground">SHA-256:</span>
+                <code className="font-mono text-muted-foreground">{d.sha256Hash}</code>
+              </div>
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const r = await api<{ intact: boolean }>(`/api/admin/documents/${d.id}/verify-integrity`, { method: "POST", body: {} });
+                    setIntegrityMsg({ intact: r.intact, text: r.intact ? "Live byte check passed: document is 100% intact." : "TAMPER ALERT: stored bytes do not match SHA-256 or HMAC seal!" });
+                    await reload();
+                  } catch (e) {
+                    setErr((e as Error).message);
+                  }
+                }}
+                className="font-medium text-brand-700 underline"
+              >
+                Verify Integrity
+              </button>
+            </div>
+          )}
+          {integrityMsg && (
+            <div className={`flex items-center gap-2 rounded-sm border px-3 py-2 text-xs font-medium ${integrityMsg.intact ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-accent-200 bg-accent-50 text-accent-800"}`}>
+              {integrityMsg.intact ? <ShieldCheck className="size-4" /> : <ShieldAlert className="size-4" />}
+              {integrityMsg.text}
+            </div>
+          )}
           <ErrorNote message={err} />
           <div className="flex flex-wrap gap-2">
             <Button variant="secondary" onClick={() => download(d.id)}><Download className="size-4" /> View / download</Button>

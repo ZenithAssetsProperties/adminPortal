@@ -16,6 +16,11 @@ export { EmptyState, type EmptyStateProps } from "@/components/ui/empty-state";
 export { Separator, type SeparatorProps } from "@/components/ui/separator";
 export { Heading, Text, Code, Blockquote } from "@/components/ui/typography";
 export { Slot } from "@/components/ui/slot";
+export { MetricCard, type MetricCardProps } from "@/components/ui/metric-card";
+export { VerificationBadge, TrustCheckItem, type VerificationBadgeState } from "@/components/ui/verification-badge";
+export { PipelineStepper, type PipelineStep } from "@/components/ui/pipeline-stepper";
+export { AreaChart, type ChartPoint } from "@/components/ui/area-chart";
+export { ProgressRing } from "@/components/ui/progress-ring";
 
 const inputCls = "w-full rounded-sm border border-border bg-white px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-brand-600 focus:ring-1 focus:ring-brand-600 focus:outline-none transition-colors";
 

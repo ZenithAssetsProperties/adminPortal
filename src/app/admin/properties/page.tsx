@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Plus, Search, BadgeCheck } from "lucide-react";
-import { Button, Card, DataTable, Input, PageHeader, Select, Spinner, StatusBadge, ErrorNote } from "@/components/ui";
+import { Button, Card, DataTable, Input, PageHeader, Select, Spinner, StatusBadge, ErrorNote, VerificationBadge } from "@/components/ui";
 import { naira, useApi } from "@/lib/client";
 
 type Row = { id: string; name: string; type: string; status: string; city: string; area: string | null; priceKobo: number; verified: boolean; featured: boolean };
@@ -32,6 +32,7 @@ export default function PropertiesPage() {
               { header: "Property", cell: (r) => <div><div className="font-medium text-brand-900">{r.name}{r.verified && <BadgeCheck className="ml-1 inline size-4 text-brand-500" aria-label="Verified" />}</div><div className="text-xs text-brand-400 capitalize">{r.type}</div></div> },
               { header: "Location", cell: (r) => [r.area, r.city].filter(Boolean).join(", ") },
               { header: "Price", cell: (r) => naira(r.priceKobo) },
+              { header: "Trust", cell: (r) => <VerificationBadge state={r.verified ? "verified" : "unverified"} /> },
               { header: "Status", cell: (r) => <StatusBadge value={r.status} /> },
             ]} />
         )}

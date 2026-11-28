@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db, schema } from "@/db";
 import { adminRoute, parseQuery } from "@/lib/http";
 import { PageQuery, likeEscape, offset, paged } from "@/lib/query";
+import { maskIp } from "@/lib/privacy";
 
 const Day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD");
 const Q = PageQuery.extend({
@@ -14,7 +15,7 @@ const Q = PageQuery.extend({
 });
 
 // Read-only on purpose: there is no route that changes or removes audit rows.
-export const GET = adminRoute("audit.read", async ({ req }) => {
+export const GET = adminRoute("audit.read", async ({ req, staff }) => {
   const q = parseQuery(req, Q);
   const a = schema.auditLogs;
   const conds: (SQL | undefined)[] = [];
@@ -32,5 +33,10 @@ export const GET = adminRoute("audit.read", async ({ req }) => {
       .where(where).orderBy(desc(a.createdAt)).limit(q.pageSize).offset(offset(q)),
     db.select({ n: count() }).from(a).where(where),
   ]);
-  return paged(items, Number(n), q);
+  const piiLevel = staff.piiAccessLevel ?? "full";
+  const maskedItems = piiLevel === "full" ? items : items.map((row) => ({
+    ...row,
+    ip: row.ip ? maskIp(row.ip, piiLevel) : null,
+  }));
+  return paged(maskedItems, Number(n), q);
 });

@@ -63,6 +63,20 @@ export async function readLocal(key: string) {
   return fs.readFile(path.join(LOCAL_DIR, key));
 }
 
+export async function readObject(key: string): Promise<Buffer> {
+  assertSafeKey(key);
+  if (s3Enabled()) {
+    const res = await s3().send(new GetObjectCommand({ Bucket: process.env.S3_BUCKET!, Key: key }));
+    if (!res.Body) throw new Error("Empty object body from storage");
+    const chunks: Uint8Array[] = [];
+    for await (const chunk of res.Body as AsyncIterable<Uint8Array>) {
+      chunks.push(chunk);
+    }
+    return Buffer.concat(chunks);
+  }
+  return readLocal(key);
+}
+
 function sig(key: string, exp: number) {
   return createHmac("sha256", process.env.SESSION_SECRET!).update(`${key}|${exp}`).digest("hex");
 }
