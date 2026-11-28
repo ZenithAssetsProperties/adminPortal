@@ -4,7 +4,7 @@ import { db, schema } from "@/db";
 import { adminRoute, badRequest, forbidden, getIp, notFound, parseBody } from "@/lib/http";
 import { can } from "@/lib/rbac";
 import { DOC_KINDS } from "@/lib/documents";
-import { deleteObject } from "@/lib/storage";
+import { deleteObject, signedUrl } from "@/lib/storage";
 import { notifyCustomer } from "@/lib/notify";
 import { audit } from "@/lib/audit";
 
@@ -19,12 +19,41 @@ async function loadGroup(id: string) {
   return { row, versions, current: versions[0] };
 }
 
-/** Any version id returns the document's current state plus its full version history. */
-export const GET = adminRoute("documents.read", async ({ params }) => {
+/** Any version id returns the document's current state, inline preview URL, vetting logs, and version history. */
+export const GET = adminRoute("documents.read", async ({ req, params }) => {
   const { versions, current } = await loadGroup(params.id);
-  const [prop] = current.propertyId ? await db.select({ name: schema.properties.name }).from(schema.properties).where(eq(schema.properties.id, current.propertyId)) : [];
-  const [cust] = current.customerId ? await db.select({ name: schema.customers.fullName, email: schema.customers.email }).from(schema.customers).where(eq(schema.customers.id, current.customerId)) : [];
-  return { document: { ...strip(current), propertyName: prop?.name ?? null, customerName: cust?.name ?? null, customerEmail: cust?.email ?? null }, versions: versions.map(strip) };
+  const [[prop], [cust], [uploader], vettingLogs] = await Promise.all([
+    current.propertyId ? db.select({ name: schema.properties.name }).from(schema.properties).where(eq(schema.properties.id, current.propertyId)) : Promise.resolve([]),
+    current.customerId ? db.select({ name: schema.customers.fullName, email: schema.customers.email }).from(schema.customers).where(eq(schema.customers.id, current.customerId)) : Promise.resolve([]),
+    current.uploadedBy ? db.select({ name: schema.staff.name }).from(schema.staff).where(eq(schema.staff.id, current.uploadedBy)) : Promise.resolve([]),
+    db
+      .select({
+        id: schema.documentVettingLogs.id,
+        stage: schema.documentVettingLogs.stage,
+        passed: schema.documentVettingLogs.passed,
+        notes: schema.documentVettingLogs.notes,
+        checklist: schema.documentVettingLogs.checklist,
+        createdAt: schema.documentVettingLogs.createdAt,
+        reviewerName: schema.staff.name,
+      })
+      .from(schema.documentVettingLogs)
+      .leftJoin(schema.staff, eq(schema.staff.id, schema.documentVettingLogs.reviewerId))
+      .where(eq(schema.documentVettingLogs.documentId, current.id))
+      .orderBy(desc(schema.documentVettingLogs.createdAt)),
+  ]);
+  const previewUrl = await signedUrl(current.storageKey, new URL(req.url).origin, current.title, 600);
+  return {
+    document: {
+      ...strip(current),
+      propertyName: prop?.name ?? null,
+      customerName: cust?.name ?? null,
+      customerEmail: cust?.email ?? null,
+      uploaderName: uploader?.name ?? null,
+      previewUrl,
+    },
+    versions: versions.map(strip),
+    vettingLogs,
+  };
 });
 
 const Patch = z.object({

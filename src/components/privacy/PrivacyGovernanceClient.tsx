@@ -79,6 +79,7 @@ type PrivacySettings = {
   maskPiiByDefault: boolean;
   enforceIpAllowlist: boolean;
   anonymizeOnErasure: boolean;
+  enforceMakerChecker?: boolean;
   policyVersion: string;
   updatedAt: string;
 };
@@ -968,6 +969,7 @@ function ConsentsAndRetentionTab({
   const [slaDays, setSlaDays] = useState(settings?.dsarSlaDays ?? 30);
   const [policyVer, setPolicyVer] = useState(settings?.policyVersion ?? "2026.1");
   const [maskDefault, setMaskDefault] = useState(settings?.maskPiiByDefault ?? true);
+  const [makerChecker, setMakerChecker] = useState(settings?.enforceMakerChecker ?? true);
   const [saving, setSaving] = useState(false);
 
   async function saveSettings(e: React.FormEvent) {
@@ -982,6 +984,7 @@ function ConsentsAndRetentionTab({
           dsarSlaDays: slaDays,
           policyVersion: policyVer,
           maskPiiByDefault: maskDefault,
+          enforceMakerChecker: makerChecker,
         },
       });
       onOk("Global privacy retention & policy settings saved.");
@@ -1048,6 +1051,16 @@ function ConsentsAndRetentionTab({
               >
                 <option value="1">Enabled</option>
                 <option value="0">Disabled</option>
+              </Select>
+            </Field>
+            <Field label="Maker-Checker Doc Vetting">
+              <Select
+                disabled={!canManage}
+                value={makerChecker ? "1" : "0"}
+                onChange={(e) => setMakerChecker(e.target.value === "1")}
+              >
+                <option value="1">Enforced (4-Eyes)</option>
+                <option value="0">Relaxed (Solo Admin)</option>
               </Select>
             </Field>
             {canManage && (

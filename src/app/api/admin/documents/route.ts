@@ -3,7 +3,7 @@ import { z } from "zod";
 import { db, schema } from "@/db";
 import { adminRoute, badRequest, getIp, parseQuery } from "@/lib/http";
 import { PageQuery, likeEscape, offset, paged } from "@/lib/query";
-import { DOC_KINDS, currentVersionOnly, formFields, readUpload } from "@/lib/documents";
+import { DOC_KINDS, TITLE_DOC_KINDS, currentVersionOnly, formFields, readUpload } from "@/lib/documents";
 import { newKey, putObject } from "@/lib/storage";
 import { audit } from "@/lib/audit";
 
@@ -49,6 +49,10 @@ const Meta = z.object({
   customerId: z.string().uuid().optional(),
   transactionId: z.string().uuid().optional(),
   visibility: z.enum(["request_only", "customer_only", "public"]).optional(),
+  issuingAuthority: z.string().trim().min(2).max(160).optional(),
+  registryRef: z.string().trim().min(2).max(120).optional(),
+  issuedDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD").optional(),
+  expiresAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD").optional(),
 });
 
 export const POST = adminRoute("documents.write", async ({ req, staff }) => {
@@ -56,6 +60,11 @@ export const POST = adminRoute("documents.write", async ({ req, staff }) => {
   const form = await req.formData();
   const meta = Meta.parse(formFields(form));
   if (!meta.propertyId && !meta.customerId) throw badRequest("Attach the document to a property or a customer");
+
+  const isTitleDoc = (TITLE_DOC_KINDS as readonly string[]).includes(meta.kind);
+  if (isTitleDoc && meta.propertyId && (!meta.issuingAuthority || !meta.registryRef)) {
+    throw badRequest("Title documents require Issuing Authority and Registry / File Reference for verification.");
+  }
 
   // foreign keys are checked up front so a bad id gives a clear message, not a server error
   if (meta.propertyId) {
@@ -94,6 +103,27 @@ export const POST = adminRoute("documents.write", async ({ req, staff }) => {
       );
       throw badRequest("Duplicate document detected: this exact file is already registered to another property.");
     }
+
+    if (meta.registryRef) {
+      const [dupRef] = await db
+        .select({ id: schema.documents.id, propertyId: schema.documents.propertyId })
+        .from(schema.documents)
+        .where(and(eq(schema.documents.registryRef, meta.registryRef), ne(schema.documents.propertyId, meta.propertyId)))
+        .limit(1);
+      if (dupRef) {
+        await audit(
+          { type: "staff", id: staff.id },
+          "security.duplicate_registry_ref_blocked",
+          {
+            entity: "property",
+            entityId: meta.propertyId,
+            meta: { registryRef: meta.registryRef, conflictingPropertyId: dupRef.propertyId },
+            ip: getIp(req),
+          },
+        );
+        throw badRequest(`Registry reference "${meta.registryRef}" is already registered to another property.`);
+      }
+    }
   }
 
   const key = newKey(meta.propertyId ? `documents/property/${meta.propertyId}` : `documents/customer/${meta.customerId}`, file.ext);
@@ -102,9 +132,20 @@ export const POST = adminRoute("documents.write", async ({ req, staff }) => {
     groupId: crypto.randomUUID(), version: 1, kind: meta.kind, title: meta.title,
     propertyId: meta.propertyId ?? null, customerId: meta.customerId ?? null, transactionId: meta.transactionId ?? null,
     storageKey: key, mimeType: file.mime, sizeBytes: file.size, sha256Hash: file.sha256Hash, status: "pending",
+    issuingAuthority: meta.issuingAuthority ?? null,
+    registryRef: meta.registryRef ?? null,
+    issuedDate: meta.issuedDate ?? null,
+    expiresAt: meta.expiresAt ?? null,
     visibility: meta.visibility ?? (meta.customerId && !meta.propertyId ? "customer_only" : "request_only"),
     uploadedBy: staff.id,
   }).returning();
+  await db.insert(schema.documentVettingLogs).values({
+    documentId: row.id,
+    reviewerId: staff.id,
+    stage: "intake_scan",
+    passed: true,
+    notes: `Structural & SHA-256 intake scan passed (${file.sha256Hash.slice(0, 16)}...)`,
+  });
   await audit({ type: "staff", id: staff.id }, "document.upload", { entity: "document", entityId: row.id, meta: { kind: row.kind, version: 1, sha256Hash: file.sha256Hash }, ip: getIp(req) });
   const { storageKey: _omit, ...safe } = row; void _omit;
   return Response.json(safe, { status: 201 });

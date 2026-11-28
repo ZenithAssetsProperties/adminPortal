@@ -16,6 +16,7 @@ const UpdateSettings = z.object({
   maskPiiByDefault: z.boolean().optional(),
   enforceIpAllowlist: z.boolean().optional(),
   anonymizeOnErasure: z.boolean().optional(),
+  enforceMakerChecker: z.boolean().optional(),
   policyVersion: z.string().trim().min(1).max(32).optional(),
 });
 
